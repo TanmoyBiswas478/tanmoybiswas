@@ -231,7 +231,22 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   /* -- Animation loop, paused while off screen or in a background tab -- */
 
   let onScreen = true;
-  const updateLoop = () => renderer.setAnimationLoop(onScreen && !document.hidden ? render : null);
+  // Draw on GSAP's ticker: GSAP first updates its tweens (pointer, camera),
+  // then this draws in the same frame. A separate requestAnimationFrame loop
+  // could draw before those updates and show the pointer a frame late.
+  const tick = (time) => render(time * 1000);
+  let ticking = false;
+  const updateLoop = () => {
+    const on = onScreen && !document.hidden;
+    if (!gsap) {
+      renderer.setAnimationLoop(on ? render : null);
+      return;
+    }
+    if (on === ticking) return;
+    ticking = on;
+    if (on) gsap.ticker.add(tick);
+    else gsap.ticker.remove(tick);
+  };
   new IntersectionObserver(([entry]) => {
     onScreen = entry.isIntersecting;
     updateLoop();
@@ -254,7 +269,8 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   const hit = new Vector3();
   const ndc = new Vector2();
 
-  const glide = { duration: 0.6, ease: 'power3.out' };
+  // Short glide: the glowing peak stays under the pointer instead of trailing it.
+  const glide = { duration: 0.12, ease: 'power2.out' };
   const pointerX = gsap.quickTo(uniforms.uPointer.value, 'x', glide);
   const pointerZ = gsap.quickTo(uniforms.uPointer.value, 'y', glide);
   const hillTo = gsap.quickTo(uniforms.uHill, 'value', { duration: 0.8, ease: 'power2.out' });

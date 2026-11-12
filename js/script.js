@@ -32,6 +32,11 @@
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
   const scriptUrl = document.currentScript?.src;
 
+  if (location.protocol === 'file:') {
+    console.warn('Opened from disk (file://): browsers block the web fonts and the 3D scenes here. '
+      + 'Run start-local.cmd and use http://localhost:5500 instead.');
+  }
+
   const { gsap, ScrollTrigger, Lenis } = window;
   const hasGsap = Boolean(gsap && ScrollTrigger);
   if (hasGsap) gsap.registerPlugin(ScrollTrigger);
@@ -53,6 +58,56 @@
     } else {
       el.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth' });
     }
+  }
+
+  /**
+   * Resolves once the hero can be shown as designed: web fonts in and the
+   * portrait decoded (capped, so a slow network never holds the page).
+   * The intro waits on this with or without the preloader, so it never
+   * plays over an empty card or in a fallback font.
+   */
+  const heroReady = (() => {
+    const portrait = document.querySelector('.hero__portrait img');
+    const loaded = !portrait || portrait.complete
+      ? Promise.resolve()
+      : new Promise((resolve) => {
+          portrait.addEventListener('load', resolve, { once: true });
+          portrait.addEventListener('error', resolve, { once: true });
+        });
+    const decoded = loaded.then(() => portrait?.decode?.()).catch(() => {});
+    return Promise.race([
+      Promise.all([document.fonts?.ready, decoded]),
+      new Promise((resolve) => setTimeout(resolve, 2200)),
+    ]);
+  })();
+
+  /**
+   * Resolves when the hero intro has finished. Heavy work (Three.js) waits
+   * on this: started earlier, its ~0.7s main-thread freeze landed in the
+   * middle of the intro, which then stalled and jumped.
+   */
+  let introFinished;
+  const introDone = new Promise((resolve) => { introFinished = resolve; });
+
+  /** Resolves once the hero terrain has been set up (or has failed or been skipped). */
+  let terrainFinished;
+  const terrainSettled = new Promise((resolve) => { terrainFinished = resolve; });
+
+  /** Run heavy, non-urgent work when the browser has a quiet moment. */
+  const whenIdle = window.requestIdleCallback
+    ? (callback) => window.requestIdleCallback(callback, { timeout: 600 })
+    : (callback) => setTimeout(callback, 100);
+
+  /**
+   * A getter for an element's bounding box that measures at most once per
+   * scroll/resize, so pointer handlers never force a layout on every event.
+   */
+  function cachedRect(el) {
+    let rect = null;
+    const reset = () => { rect = null; };
+    window.addEventListener('scroll', reset, { passive: true });
+    window.addEventListener('resize', reset);
+    return () => (rect ??= el.getBoundingClientRect());
   }
 
   /** Run `callback` at most once per animation frame, however often it is requested. */
@@ -174,7 +229,10 @@
     name.classList.add('is-split');
 
     const parts = $$('[data-intro]', hero);
-    const finish = () => name.classList.add('is-ready');
+    const finish = () => {
+      name.classList.add('is-ready');
+      introFinished();
+    };
 
     if (!animate) {
       parts.forEach((el) => { el.style.opacity = '1'; });
@@ -188,8 +246,10 @@
     const portrait = $('.hero__portrait', hero);
     const fades = [$('.hero__meta', hero), $('.hero__foot', hero)].filter(Boolean);
 
-    // Inline opacity overrides the CSS that hid these pieces until now.
-    gsap.set(parts, { opacity: 1 });
+    // Inline opacity overrides the CSS that hid these pieces until now. The
+    // CSS failsafe animation is switched off too: an animation with fill-mode
+    // `forwards` outranks inline styles and would fight this timeline.
+    gsap.set(parts, { opacity: 1, animation: 'none' });
 
     const intro = gsap.timeline({ paused: true, defaults: { ease: 'expo.out' }, onComplete: finish })
       .from(first, { yPercent: 115, duration: 1, stagger: 0.035 }, 0)
@@ -213,7 +273,8 @@
     const skip = !loader || !animate || document.documentElement.classList.contains('no-loader');
     if (skip) {
       loader?.remove();
-      onDone();
+      // No preloader to cover the wait, but still wait for the portrait.
+      heroReady.then(onDone);
       return;
     }
     try { sessionStorage.setItem('tb-visited', '1'); } catch { /* private mode: it just plays again */ }
@@ -233,14 +294,7 @@
         onComplete: resolve,
       });
     });
-    // Ready when the fonts and the portrait are in, but never wait on them for long.
-    const portrait = $('.hero__portrait img');
-    const ready = Promise.race([
-      Promise.all([document.fonts?.ready, portrait?.decode?.().catch(() => {})]),
-      new Promise((resolve) => setTimeout(resolve, 1800)),
-    ]);
-
-    Promise.all([counted, ready]).then(() => {
+    Promise.all([counted, heroReady]).then(() => {
       gsap.to(loader, {
         yPercent: -100,
         duration: 0.9,
@@ -265,8 +319,25 @@
   function initSmoothScroll() {
     if (!animate || !Lenis) return;
     lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 1 });
+
+    // Lenis rewrites <html>'s class at the start and end of every scroll
+    // (lenis-scrolling). A class change on <html> makes the browser restyle
+    // the whole page, including every split letter and word, so scrolling
+    // stuttered at each start and stop. Only lenis-stopped is used by the CSS
+    // as a state, so keep the classes fixed and toggle that one alone.
+    lenis.updateClassName = function updateClassName() {
+      const wanted = `lenis lenis-smooth${this.isStopped ? ' lenis-stopped' : ''}`;
+      if (wanted === this.appliedClassName) return;
+      this.appliedClassName = wanted;
+      this.cleanUpClassName();
+      this.rootElement.className = `${this.rootElement.className} ${wanted}`.trim();
+    };
+    lenis.updateClassName();
+
     lenis.on('scroll', ScrollTrigger.update);
-    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    // Prioritised, so Lenis scrolls first in each frame, before GSAP's tweens
+    // write styles; scrolling after those writes forced an extra layout pass.
+    gsap.ticker.add((time) => lenis.raf(time * 1000), false, true);
     gsap.ticker.lagSmoothing(0);
   }
 
@@ -284,8 +355,9 @@
     }
 
     const label = $('[data-cursor-label]', cursor);
-    const toX = gsap.quickTo(cursor, 'x', { duration: 0.35, ease: 'power3.out' });
-    const toY = gsap.quickTo(cursor, 'y', { duration: 0.35, ease: 'power3.out' });
+    // A short trail: the dot follows the pointer softly but keeps up with it.
+    const toX = gsap.quickTo(cursor, 'x', { duration: 0.15, ease: 'power3.out' });
+    const toY = gsap.quickTo(cursor, 'y', { duration: 0.15, ease: 'power3.out' });
     let visible = false;
 
     window.addEventListener('pointermove', (event) => {
@@ -352,16 +424,26 @@
         .to(steps[2], { autoAlpha: 1, y: 0, duration: 0.3 }, 2.2);
     }
 
-    // The 3D scene loads when the section comes within ~600px of the viewport.
+    // The 3D scene is set up ahead of time, in idle time once the hero
+    // terrain is running. Setting it up only when the section came near
+    // froze the page for a moment in the middle of the visitor's scroll.
+    // If they scroll there before that, it starts as the section nears.
     const canvas = $('[data-story-canvas]', section);
     if (!canvas || !scriptUrl) return;
-    new IntersectionObserver((entries, observer) => {
-      if (!entries[0].isIntersecting) return;
-      observer.disconnect();
+    let started = false;
+    const mount = () => {
+      if (started) return;
+      started = true;
+      nearby.disconnect();
       import(new URL('story.js', scriptUrl).href)
         .then(({ mountStory }) => mountStory(canvas, { gsap, state: storyState, still: !animate }))
         .catch((error) => console.warn('Story scene unavailable:', error));
-    }, { rootMargin: '600px 0px' }).observe(section);
+    };
+    const nearby = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) mount();
+    }, { rootMargin: '600px 0px' });
+    nearby.observe(section);
+    terrainSettled.then(() => whenIdle(mount));
   }
 
   /* ------------------------------------------------------------------ *
@@ -395,10 +477,11 @@
     let centres = [];
     let lift = 0;
     let reach = 1;
+    const nameRect = cachedRect(name);
 
     // Letter centres relative to the heading box, measured with their lift removed.
     function measure() {
-      const box = name.getBoundingClientRect();
+      const box = nameRect();
       const fontSize = parseFloat(getComputedStyle(name).fontSize);
       lift = fontSize * 0.2;
       reach = fontSize * 0.75;
@@ -414,7 +497,7 @@
     hero.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse' || !name.classList.contains('is-ready')) return;
       if (!centres.length) measure();
-      const box = name.getBoundingClientRect();
+      const box = nameRect();
       const px = event.clientX - box.left;
       const py = event.clientY - box.top;
       const spread = 2 * reach * reach;
@@ -470,9 +553,10 @@
       badgeY?.(ny * 18);
     }
 
+    const heroRect = cachedRect(hero);
     hero.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse') return;
-      const rect = hero.getBoundingClientRect();
+      const rect = heroRect();
       // -1 at the left/top edge of the hero, +1 at the right/bottom.
       aim(((event.clientX - rect.left) / rect.width) * 2 - 1, ((event.clientY - rect.top) / rect.height) * 2 - 1);
     }, { passive: true });
@@ -489,7 +573,10 @@
 
   function initTerrain() {
     const canvas = $('[data-terrain]');
-    if (!canvas || !scriptUrl) return;
+    if (!canvas || !scriptUrl) {
+      terrainFinished();
+      return;
+    }
 
     // As the hero scrolls away, the terrain's camera flies forward into it.
     if (animate) {
@@ -508,13 +595,25 @@
       .then(({ mountTerrain }) => mountTerrain(canvas, { gsap, still: !animate, scroll: heroScroll }))
       .catch((error) => console.warn('Hero terrain unavailable:', error));
 
-    const whenIdle = window.requestIdleCallback
-      ? (callback) => window.requestIdleCallback(callback, { timeout: 2500 })
-      : (callback) => setTimeout(callback, 1200);
-    const afterLoad = () => setTimeout(() => whenIdle(start), animate ? 900 : 0);
+    // Download Three.js (~670 KB) while the preloader and intro play, once the
+    // portrait is in, so it is cached by the time it is needed...
+    heroReady.then(() => {
+      for (const file of ['terrain.js', 'vendor/three.module.min.js']) {
+        const link = document.createElement('link');
+        link.rel = 'modulepreload';
+        link.href = new URL(file, scriptUrl).href;
+        document.head.append(link);
+      }
+    });
 
-    if (document.readyState === 'complete') afterLoad();
-    else window.addEventListener('load', afterLoad, { once: true });
+    // ...but only run it (a ~0.7s main-thread task) after the intro is over.
+    const loaded = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise((resolve) => window.addEventListener('load', resolve, { once: true }));
+    // The timeout covers an intro that never finishes (e.g. a script error).
+    Promise.race([introDone, new Promise((resolve) => setTimeout(resolve, 6000))])
+      .then(() => loaded)
+      .then(() => whenIdle(() => start().finally(terrainFinished)));
   }
 
   /* ------------------------------------------------------------------ *
@@ -529,10 +628,12 @@
     const toggle = $('[data-nav-toggle]', nav);
     const label = $('.nav__toggle-label', nav);
     const links = $$('.nav__links a', nav);
-    let lastY = window.scrollY;
+    // Lenis already knows the position; asking the window for it here forced a layout.
+    const scrollY = () => (lenis ? lenis.scroll : window.scrollY);
+    let lastY = scrollY();
 
     const onScroll = oncePerFrame(() => {
-      const y = window.scrollY;
+      const y = scrollY();
       nav.classList.toggle('is-scrolled', y > 8);
       // Ignore tiny movements so the bar does not flicker on trackpads.
       if (Math.abs(y - lastY) > 6) {
@@ -1240,9 +1341,13 @@
       input.value = '';
       render();
       dialog.showModal();
+      document.documentElement.classList.add('is-palette-open');
       lenis?.stop();
     }
-    dialog.addEventListener('close', () => lenis?.start());
+    dialog.addEventListener('close', () => {
+      document.documentElement.classList.remove('is-palette-open');
+      lenis?.start();
+    });
 
     input.addEventListener('input', render);
     input.addEventListener('keydown', (event) => {
@@ -1312,6 +1417,12 @@
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 
-  // Web fonts change text widths, and with them every trigger position.
-  if (hasGsap) document.fonts?.ready.then(() => ScrollTrigger.refresh());
+  // Web fonts and late images change the layout, and with it every trigger
+  // position, so measure again once each has settled.
+  if (hasGsap) {
+    document.fonts?.ready.then(() => ScrollTrigger.refresh());
+    if (document.readyState !== 'complete') {
+      window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
+    }
+  }
 })();

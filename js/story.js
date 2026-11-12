@@ -204,18 +204,37 @@ export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false }
 
   // Animation loop, paused while off screen or in a background tab.
   let onScreen = true;
-  const updateLoop = () => renderer.setAnimationLoop(onScreen && !document.hidden ? render : null);
+  // Drawn on GSAP's ticker (when present), in the same frame callback as the
+  // scroll and the scrubbed morph, instead of a second requestAnimationFrame
+  // loop that could draw before they update.
+  const tick = (time) => render(time * 1000);
+  let ticking = false;
+  const updateLoop = () => {
+    const on = onScreen && !document.hidden;
+    if (!gsap) {
+      renderer.setAnimationLoop(on ? render : null);
+      return;
+    }
+    if (on === ticking) return;
+    ticking = on;
+    if (on) gsap.ticker.add(tick);
+    else gsap.ticker.remove(tick);
+  };
+  // The scene is usually set up before the visitor reaches it, so the
+  // entrance (particles bloom from nothing) waits until it is first in view.
+  let entered = false;
   new IntersectionObserver(([entry]) => {
     onScreen = entry.isIntersecting;
     updateLoop();
+    if (onScreen && !entered && gsap) {
+      entered = true;
+      gsap.to(uniforms.uSize, { value: 34, duration: 1.8, ease: 'expo.out' });
+    }
   }).observe(canvas);
   document.addEventListener('visibilitychange', updateLoop);
   updateLoop();
 
   if (!gsap) return true;
-
-  // Entrance: the particles bloom from nothing to full size.
-  gsap.to(uniforms.uSize, { value: 34, duration: 1.8, ease: 'expo.out' });
 
   // The whole shape leans toward the pointer.
   const tiltX = gsap.quickTo(group.rotation, 'x', { duration: 1, ease: 'power3.out' });

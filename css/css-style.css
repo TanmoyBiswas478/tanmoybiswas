@@ -78,7 +78,10 @@ html {
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: calc(var(--nav-h) + 12px);
 }
-html:has(dialog[open]) { overflow: hidden; }
+/* Set by script.js while the command palette is open. (A :has(dialog[open])
+   selector on <html> did the same, but made Chrome re-check <html> on
+   every frame of scrolling.) */
+html.is-palette-open { overflow: hidden; }
 
 body {
   font-family: var(--body);

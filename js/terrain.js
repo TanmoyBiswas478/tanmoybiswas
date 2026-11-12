@@ -12,6 +12,7 @@ import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   LineSegments, ShaderMaterial, Color, Vector2, Vector3, Plane, Raycaster, Group,
 } from './vendor/three.module.min.js';
+import { createLean } from './lean.js';
 
 const ROWS = 46;        // ridgelines, front to back
 const POINTS = 110;     // points along each ridgeline
@@ -23,7 +24,7 @@ const FAR_Z = -24;      // last ridgeline
  * 3D simplex noise, from "webgl-noise" by Ian McEwan and Stefan Gustavson
  * (MIT licence, https://github.com/stegu/webgl-noise). Returns -1..1.
  */
-const SIMPLEX_NOISE = /* glsl */ `
+export const SIMPLEX_NOISE = /* glsl */ `
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 permute(vec4 x) { return mod289(((x * 34.0) + 10.0) * x); }
@@ -181,8 +182,8 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
     uRise: { value: still || !gsap ? 1 : 0 },
     uPointer: { value: new Vector2(0, -4) },
     uHill: { value: 0 },
-    uColor: { value: new Color(styles.getPropertyValue('--lime').trim() || '#d2ff00') },
-    uPeak: { value: new Color('#ffffff') },
+    uColor: { value: new Color(styles.getPropertyValue('--lime').trim() || '#8b7bff') },
+    uPeak: { value: new Color(styles.getPropertyValue('--coral').trim() || '#ff6b8b') },
     uFadeNear: { value: 6 },
     uFadeFar: { value: 26 },
   };
@@ -234,7 +235,11 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   // Draw on GSAP's ticker: GSAP first updates its tweens (pointer, camera),
   // then this draws in the same frame. A separate requestAnimationFrame loop
   // could draw before those updates and show the pointer a frame late.
-  const tick = (time) => render(time * 1000);
+  let steer = null; // set below: moves the hill toward mouse, finger or tilt
+  const tick = (time) => {
+    steer?.(time);
+    render(time * 1000);
+  };
   let ticking = false;
   const updateLoop = () => {
     const on = onScreen && !document.hidden;
@@ -276,23 +281,36 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   const hillTo = gsap.quickTo(uniforms.uHill, 'value', { duration: 0.8, ease: 'power2.out' });
   const swayX = gsap.quickTo(camera.position, 'x', { duration: 1.2, ease: 'power3.out' });
 
-  card.addEventListener('pointermove', (event) => {
-    if (event.pointerType !== 'mouse') return;
-    const rect = canvas.getBoundingClientRect();
-    ndc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+  // The canvas box, measured at most once per scroll or resize (not per frame).
+  let rect = null;
+  const forget = () => { rect = null; };
+  window.addEventListener('scroll', forget, { passive: true });
+  window.addEventListener('resize', forget);
+
+  // Mouse or finger: the hill sits right under it. Phone tilt, or the slow
+  // automatic sway on touch screens: the hill wanders across the terrain.
+  const read = createLean(card);
+  steer = (time) => {
+    const lean = read(time);
+    if (lean.source === 'none') {
+      hillTo(0);
+      swayX(0);
+      return;
+    }
+    if (lean.source === 'pointer') {
+      rect ??= canvas.getBoundingClientRect();
+      ndc.set(((lean.clientX - rect.left) / rect.width) * 2 - 1, -((lean.clientY - rect.top) / rect.height) * 2 + 1);
+    } else {
+      ndc.set(lean.x * 0.8, -0.2 - lean.y * 0.5);
+    }
     raycaster.setFromCamera(ndc, camera);
     if (raycaster.ray.intersectPlane(ground, hit)) {
       pointerX(hit.x);
       pointerZ(hit.z);
-      hillTo(1);
+      hillTo(lean.source === 'sway' ? 0.8 : 1);
     }
     swayX(ndc.x * 0.8);
-  }, { passive: true });
-
-  card.addEventListener('pointerleave', () => {
-    hillTo(0);
-    swayX(0);
-  });
+  };
 
   return true;
 }

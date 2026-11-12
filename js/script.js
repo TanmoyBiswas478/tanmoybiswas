@@ -447,6 +447,59 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Contact orb (Three.js, js/orb.js): set up in idle time after the hero
+   * terrain, or as the section nears if the visitor gets there first.
+   * ------------------------------------------------------------------ */
+
+  function initOrb() {
+    const canvas = $('[data-orb]');
+    if (!canvas || !scriptUrl) return;
+    let started = false;
+    const mount = () => {
+      if (started) return;
+      started = true;
+      nearby.disconnect();
+      import(new URL('orb.js', scriptUrl).href)
+        .then(({ mountOrb }) => mountOrb(canvas, { gsap, ScrollTrigger: hasGsap ? ScrollTrigger : null, still: !animate }))
+        .catch((error) => console.warn('Contact orb unavailable:', error));
+    };
+    const nearby = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) mount();
+    }, { rootMargin: '600px 0px' });
+    nearby.observe(canvas);
+    // After the story scene's idle slot, so the two set-ups never share a frame.
+    terrainSettled.then(() => setTimeout(() => whenIdle(mount), 1500));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Section scenes (Three.js, js/scenes.js): one per section heading and
+   * the footer. Each is set up, one per idle moment, as it comes within
+   * ~900px of the screen, so no two set-ups share a frame mid-scroll.
+   * ------------------------------------------------------------------ */
+
+  function initScenes() {
+    const canvases = $$('[data-scene]');
+    if (!canvases.length || !scriptUrl) return;
+    let queue = Promise.resolve();
+    const nearby = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        nearby.unobserve(entry.target);
+        const canvas = entry.target;
+        queue = queue
+          .then(() => new Promise((resolve) => whenIdle(resolve)))
+          .then(() => import(new URL('scenes.js', scriptUrl).href))
+          .then(({ mountScene }) => mountScene(canvas, {
+            kind: canvas.dataset.scene, gsap, ScrollTrigger: hasGsap ? ScrollTrigger : null, still: !animate,
+          }))
+          .catch((error) => console.warn('Scene unavailable:', error));
+      }
+    }, { rootMargin: '900px 0px' });
+    // Only after the hero terrain, which matters more, is running.
+    terrainSettled.then(() => canvases.forEach((canvas) => nearby.observe(canvas)));
+  }
+
+  /* ------------------------------------------------------------------ *
    * Footer: the giant name rises letter by letter as the page ends.
    * ------------------------------------------------------------------ */
 
@@ -454,6 +507,18 @@
     const name = $('[data-footer-name]');
     if (!name) return;
     const letters = splitText(name, 'char');
+
+    // Shade the letters from violet to coral (the 3D scenes' colours). A
+    // clipped gradient cannot be used: the letters move on their own.
+    const styles = getComputedStyle(document.documentElement);
+    const hex = (name, fallback) => (styles.getPropertyValue(name).trim() || fallback).replace('#', '');
+    const rgb = (value) => [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16));
+    const [from, to] = [rgb(hex('--lime', '#8b7bff')), rgb(hex('--coral', '#ff6b8b'))];
+    letters.forEach((letter, i) => {
+      const t = letters.length > 1 ? i / (letters.length - 1) : 0;
+      letter.style.color = `rgb(${from.map((c, k) => Math.round(c + (to[k] - c) * t)).join(',')})`;
+    });
+
     if (!animate) return;
 
     gsap.from(letters, {
@@ -1413,7 +1478,7 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initPalette, initTerrain, initStory, initFooterName, initCursor,
+    initCopy, initHireButton, initPalette, initTerrain, initStory, initOrb, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 

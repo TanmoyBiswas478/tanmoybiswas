@@ -14,6 +14,7 @@ import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   Points, ShaderMaterial, AdditiveBlending, Color, Group,
 } from './vendor/three.module.min.js';
+import { createLean } from './lean.js';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
@@ -156,8 +157,8 @@ export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false }
     uTime: { value: 0 },
     uSize: { value: still || !gsap ? 34 : 0 },
     uPixelRatio: { value: pixelRatio },
-    uColor: { value: new Color(styles.getPropertyValue('--lime').trim() || '#d2ff00') },
-    uSpark: { value: new Color('#ffffff') },
+    uColor: { value: new Color(styles.getPropertyValue('--lime').trim() || '#8b7bff') },
+    uSpark: { value: new Color(styles.getPropertyValue('--coral').trim() || '#ff6b8b') },
   };
 
   const points = new Points(geometry, new ShaderMaterial({
@@ -207,7 +208,11 @@ export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false }
   // Drawn on GSAP's ticker (when present), in the same frame callback as the
   // scroll and the scrubbed morph, instead of a second requestAnimationFrame
   // loop that could draw before they update.
-  const tick = (time) => render(time * 1000);
+  let steer = null; // set below: leans the shape toward mouse, finger or tilt
+  const tick = (time) => {
+    steer?.(time);
+    render(time * 1000);
+  };
   let ticking = false;
   const updateLoop = () => {
     const on = onScreen && !document.hidden;
@@ -236,19 +241,15 @@ export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false }
 
   if (!gsap) return true;
 
-  // The whole shape leans toward the pointer.
+  // The whole shape leans toward the mouse, a finger, or the phone's tilt (see lean.js).
   const tiltX = gsap.quickTo(group.rotation, 'x', { duration: 1, ease: 'power3.out' });
   const tiltY = gsap.quickTo(group.rotation, 'y', { duration: 1, ease: 'power3.out' });
-  const section = canvas.closest('[data-story]') ?? canvas;
-  section.addEventListener('pointermove', (event) => {
-    if (event.pointerType !== 'mouse') return;
-    tiltY(((event.clientX / window.innerWidth) * 2 - 1) * 0.35);
-    tiltX(((event.clientY / window.innerHeight) * 2 - 1) * 0.25);
-  }, { passive: true });
-  section.addEventListener('pointerleave', () => {
-    tiltX(0);
-    tiltY(0);
-  });
+  const read = createLean(canvas.closest('[data-story]') ?? canvas);
+  steer = (time) => {
+    const lean = read(time);
+    tiltY(lean.x * 0.35);
+    tiltX(lean.y * 0.25);
+  };
 
   return true;
 }

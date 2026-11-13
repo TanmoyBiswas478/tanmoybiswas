@@ -194,17 +194,32 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export function mountScene(canvas, { kind, gsap, ScrollTrigger, still = false } = {}) {
+/*
+ * One WebGL renderer, off screen, shared by every scene. Each scene draws into
+ * it and copies the frame onto its own (2D) canvas. A WebGL context per
+ * canvas cost a ~100 ms freeze each as it was created mid-scroll, plus a
+ * shader compile apiece; this way there is one context and one compile.
+ */
+const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
+let shared = null;
+function sharedRenderer() {
+  if (shared === null) {
+    try {
+      shared = new WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
+      shared.setPixelRatio(1);   // sizes below are already in device pixels
+    } catch {
+      shared = false;
+    }
+  }
+  return shared;
+}
+
+export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = false } = {}) {
   const spec = KINDS[kind];
   if (!spec) return false;
-  let renderer;
-  try {
-    renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
-  } catch {
-    return false;
-  }
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-  renderer.setPixelRatio(pixelRatio);
+  const renderer = sharedRenderer();
+  const context = renderer && canvas.getContext('2d');
+  if (!context) return false;
 
   const styles = getComputedStyle(document.documentElement);
   const color = new Color(styles.getPropertyValue('--lime').trim() || '#8b7bff');
@@ -263,19 +278,30 @@ export function mountScene(canvas, { kind, gsap, ScrollTrigger, still = false } 
     // Grows in over the first third of the pass, and back out in reverse.
     const grow = 0.3 + 0.7 * Math.min(1, Math.max(0, (p - 0.05) / 0.3));
     group.scale.setScalar(still ? 1 : 1 - (1 - grow) ** 3);
+    const { width, height } = canvas;
+    if (!width || !height) return;
+    const size = renderer.domElement;
+    if (size.width !== width || size.height !== height) renderer.setSize(width, height, false);
     renderer.render(scene, camera);
+    // Copy now, in the same task: the WebGL frame is cleared once it ends.
+    context.clearRect(0, 0, width, height);
+    context.drawImage(size, 0, 0);
   }
 
   function resize() {
     const { clientWidth: width, clientHeight: height } = canvas;
     if (!width || !height) return;
-    renderer.setSize(width, height, false);
+    canvas.width = Math.round(width * pixelRatio);
+    canvas.height = Math.round(height * pixelRatio);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     if (still) render();
   }
   new ResizeObserver(resize).observe(canvas);
   resize();
+  // Compile shaders off the main thread (KHR_parallel_shader_compile)
+  // instead of freezing the page for the first frame.
+  await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
   if (still || !gsap || !ScrollTrigger) return true;
@@ -294,7 +320,10 @@ export function mountScene(canvas, { kind, gsap, ScrollTrigger, still = false } 
 
   // Loop on GSAP's ticker, only while on screen and the tab is visible. Each
   // frame eases the scene's progress toward the scroll position.
+  let lastFrame = 0;
   const tick = (time) => {
+    if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene
+    lastFrame = time;
     clock = time;
     scrollState.current += (scrollState.target - scrollState.current) * 0.14;
     const lean = read(time);

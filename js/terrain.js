@@ -167,14 +167,14 @@ function buildRidgelines() {
  *  - scroll: object whose `progress` (0..1) script.js updates as the hero
  *            scrolls away; the camera flies forward into the terrain with it
  */
-export function mountTerrain(canvas, { gsap, still = false, scroll = { progress: 0 } } = {}) {
+export async function mountTerrain(canvas, { gsap, still = false, scroll = { progress: 0 } } = {}) {
   let renderer;
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
   } catch {
     return false;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 
   const styles = getComputedStyle(document.documentElement);
   const uniforms = {
@@ -223,6 +223,9 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   }
   new ResizeObserver(resize).observe(canvas);
   resize();
+  // Compile shaders off the main thread (KHR_parallel_shader_compile)
+  // instead of freezing the page for the first frame.
+  await renderer.compileAsync(scene, camera).catch(() => {});
 
   // Draw once, then reveal the canvas (it fades in from CSS).
   render();
@@ -236,7 +239,10 @@ export function mountTerrain(canvas, { gsap, still = false, scroll = { progress:
   // then this draws in the same frame. A separate requestAnimationFrame loop
   // could draw before those updates and show the pointer a frame late.
   let steer = null; // set below: moves the hill toward mouse, finger or tilt
+  let lastFrame = 0;
   const tick = (time) => {
+    if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene
+    lastFrame = time;
     steer?.(time);
     render(time * 1000);
   };

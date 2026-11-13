@@ -129,14 +129,14 @@ const fragmentShader = /* glsl */ `
  *  - gsap:  used for the entrance and for easing pointer movement (optional)
  *  - still: render a single frame and never animate (reduced motion)
  */
-export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false } = {}) {
+export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = false } = {}) {
   let renderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
   } catch {
     return false;
   }
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
   renderer.setPixelRatio(pixelRatio);
 
   const phone = window.matchMedia('(max-width: 760px)').matches;
@@ -199,6 +199,9 @@ export function mountStory(canvas, { state = { morph: 0 }, gsap, still = false }
 
   new ResizeObserver(resize).observe(canvas);
   resize();
+  // Compile shaders off the main thread (KHR_parallel_shader_compile)
+  // instead of freezing the page for the first frame.
+  await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
   if (still) return true;

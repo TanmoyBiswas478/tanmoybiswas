@@ -68,7 +68,8 @@
         <a href="#projects"><span class="nav__no">02</span>Projects</a>
         <a href="#about"><span class="nav__no">03</span>About</a>
         <a href="#experience"><span class="nav__no">04</span>Experience</a>
-        <a href="#contact"><span class="nav__no">05</span>Contact</a>
+        <a href="#github"><span class="nav__no">05</span>GitHub</a>
+        <a href="#contact"><span class="nav__no">06</span>Contact</a>
       </nav>
 
       <div class="nav__tools">
@@ -102,7 +103,7 @@
               bank integrations, MIS reporting, and the APIs that connect one system to another.
             </p>
             <div class="hero__cta">
-              <a class="btn" href="#contact" data-magnetic>Hire me <i class="arr" aria-hidden="true"></i></a>
+              <a class="btn btn--resume" href="resume/Tanmoy-Biswas-Resume.pdf" target="_blank" rel="noopener" data-resume data-magnetic><span class="doc" aria-hidden="true"></span>View r&eacute;sum&eacute;</a>
               <a class="link" href="#work">See the work</a>
             </div>
           </div>
@@ -586,12 +587,39 @@
       </div>
     </section>
 
+    <!-- ───────────── GitHub (Three.js, js/github.js) ───────────── -->
+    <section class="section gh" id="github" data-github="TanmoyBiswas478">
+      <div class="wrap">
+        <header class="section__head">
+          <p class="section__no">05 / GitHub</p>
+          <h2>Every commit of the last year, <em>built up in 3D.</em></h2>
+        </header>
+
+        <dl class="figures__grid gh__stats">
+          <div data-reveal><dt>Contributions in the last 12 months</dt><dd data-gh-stat="total">&mdash;</dd></div>
+          <div data-reveal><dt>Days with at least one contribution</dt><dd data-gh-stat="active">&mdash;</dd></div>
+          <div data-reveal><dt>Longest streak</dt><dd data-gh-stat="longest">&mdash;</dd></div>
+          <div data-reveal><dt>Busiest day</dt><dd data-gh-stat="best">&mdash;</dd></div>
+        </dl>
+
+        <div class="gh__card on-dark" data-reveal>
+          <canvas class="gh__canvas" data-gh-canvas aria-hidden="true"></canvas>
+          <p class="gh__status" data-gh-status>Loading contributions from GitHub&hellip;</p>
+          <p class="gh__tip" data-gh-tip hidden></p>
+          <div class="gh__foot">
+            <p class="gh__legend" aria-hidden="true">Less <i></i><i></i><i></i><i></i><i></i> More</p>
+            <a class="link" data-command="GitHub contributions" href="https://github.com/TanmoyBiswas478" target="_blank" rel="noopener">View on GitHub <i class="arr" aria-hidden="true"></i></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────── Contact ───────────── -->
     <section class="contact on-dark" id="contact">
       <canvas class="contact__orb" data-orb aria-hidden="true"></canvas>
       <div class="wrap">
         <header class="section__head">
-          <p class="section__no">05 / Contact</p>
+          <p class="section__no">06 / Contact</p>
           <h2>Have a role or a project in mind? <em>Write to me.</em></h2>
         </header>
 
@@ -613,7 +641,26 @@
     </section>
   </main>
 
-  <a class="hire" href="#contact" data-hire data-magnetic>Hire me <i class="arr" aria-hidden="true"></i></a>
+  <a class="hire" href="resume/Tanmoy-Biswas-Resume.pdf" download data-hire data-resume-download data-magnetic><span data-label>R&eacute;sum&eacute;</span> <i class="dl" aria-hidden="true"></i></a>
+
+  <!-- Résumé viewer: the "View résumé" button grows into this sheet (js/script.js, initResume). -->
+  <dialog class="resume" data-resume-dialog aria-label="R&eacute;sum&eacute; of Tanmoy Biswas" data-lenis-prevent>
+    <div class="resume__shade" data-resume-close></div>
+    <div class="resume__sheet" data-resume-sheet>
+      <header class="resume__bar" data-resume-fade>
+        <p class="resume__title"><span class="doc" aria-hidden="true"></span>Tanmoy Biswas<span>R&eacute;sum&eacute; &middot; PDF</span></p>
+        <div class="resume__actions">
+          <a class="chip resume__dl" href="resume/Tanmoy-Biswas-Resume.pdf" download data-resume-download data-command="Download r&eacute;sum&eacute;"><i class="dl" aria-hidden="true"></i><span data-label>Download</span></a>
+          <a class="chip resume__open" href="resume/Tanmoy-Biswas-Resume.pdf" target="_blank" rel="noopener">New tab <i class="arr" aria-hidden="true"></i></a>
+          <button class="chip resume__close" type="button" data-resume-close aria-label="Close r&eacute;sum&eacute;">Close <kbd>esc</kbd></button>
+        </div>
+      </header>
+      <div class="resume__body" data-resume-fade>
+        <p class="resume__loading">Opening r&eacute;sum&eacute;&hellip;</p>
+        <iframe data-resume-frame title="R&eacute;sum&eacute; of Tanmoy Biswas"></iframe>
+      </div>
+    </div>
+  </dialog>
 
   <footer class="footer on-dark">
     <canvas class="scene scene--footer" data-scene="galaxy" aria-hidden="true"></canvas>

@@ -75,14 +75,14 @@ function ringPositions(count) {
   return array;
 }
 
-export function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = {}) {
+export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = {}) {
   let renderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
   } catch {
     return false;
   }
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
   renderer.setPixelRatio(pixelRatio);
 
   const styles = getComputedStyle(document.documentElement);
@@ -150,6 +150,9 @@ export function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = {}) {
 
   new ResizeObserver(resize).observe(canvas);
   resize();
+  // Compile shaders off the main thread (KHR_parallel_shader_compile)
+  // instead of freezing the page for the first frame.
+  await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
   if (still || !gsap || !ScrollTrigger) return true;
@@ -167,7 +170,10 @@ export function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = {}) {
 
   // Loop on GSAP's ticker, paused while off screen or in a background tab.
   // Each frame eases the orb's progress toward the scroll position.
+  let lastFrame = 0;
   const tick = (time) => {
+    if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene
+    lastFrame = time;
     clock = time;
     scrollState.current += (scrollState.target - scrollState.current) * 0.14;
     const lean = read(time);

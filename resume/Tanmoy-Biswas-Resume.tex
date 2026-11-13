@@ -1,0 +1,201 @@
+%-------------------------------------------------------------
+% Tanmoy Biswas — Résumé (one page, single column, ATS-safe)
+% Compile with pdfLaTeX (Overleaf default). Output name should be
+% Tanmoy-Biswas-Resume.pdf so the portfolio's résumé buttons find it.
+%-------------------------------------------------------------
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\input{glyphtounicode}
+\pdfgentounicode=1   % keeps the PDF text machine-readable for ATS
+
+\hypersetup{pdftitle={Tanmoy Biswas - Resume}, pdfauthor={Tanmoy Biswas},
+  pdfsubject={Associate Software Development Engineer - Laravel, PHP, Python}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.55in}
+\addtolength{\textheight}{1.1in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Plain uppercase headings: small caps can come out of the PDF as odd glyphs for some parsers.
+% (\MakeUppercase goes in the last argument, where it receives only the title text.)
+\titleformat{\section}{\vspace{-5pt}\raggedright\large\bfseries}{}{0em}{\MakeUppercase}[\color{black}\titlerule\vspace{-5pt}]
+
+\newcommand{\resumeItem}[1]{\item\small{#1\vspace{-2pt}}}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & \small #2 \\
+    \textit{\small #3} & \textit{\small #4} \\
+  \end{tabular*}\vspace{-7pt}}
+\newcommand{\resumeProjectHeading}[2]{
+  \item
+  \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+    \small #1 & \small #2 \\
+  \end{tabular*}\vspace{-7pt}}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.18in]}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+% Your live portfolio address. CHECK THIS before compiling.
+\newcommand{\portfolio}{tanmoybiswas.vercel.app}
+
+%-------------------------------------------------------------
+% WRITING RULES used below (what the ATS checkers score):
+%  - every bullet starts with an action verb, max ~2 lines
+%  - only true numbers; "% TODO" comments mark where a real metric
+%    you know would raise the score (comments never print)
+%  - US spelling (most checkers flag "summarise", "organised")
+%-------------------------------------------------------------
+\begin{document}
+
+%---------- HEADING (plain text, one column: parsers read it in order) ----------
+\begin{center}
+  {\Huge\bfseries Tanmoy Biswas} \\[2pt]
+  \small Associate Software Development Engineer \,|\, Agartala, Tripura, India \\[2pt]
+  \small +91-8258903821 \,|\,
+  \href{mailto:tanmoybiswas478@gmail.com}{tanmoybiswas478@gmail.com} \,|\,
+  \href{https://www.linkedin.com/in/tanmoy-biswas-11b4721a7}{linkedin.com/in/tanmoy-biswas-11b4721a7} \,|\,
+  \href{https://github.com/TanmoyBiswas478}{github.com/TanmoyBiswas478} \,|\,
+  \href{https://\portfolio}{\portfolio}
+\end{center}
+
+%---------- SUMMARY ----------
+\section{Summary}
+\small{Software engineer developing and maintaining 4 production Laravel systems for a state government department and a
+lending business. Experienced in REST API design, API security, workflow automation, payment and bank integrations, and
+MIS reporting. B.Tech in Artificial Intelligence \& Data Science (CGPA 8.02) with hands-on machine learning work in Python.}
+
+%---------- EXPERIENCE ----------
+\section{Work Experience}
+\resumeSubHeadingListStart
+
+  \resumeSubheading
+    {iLogitron Technologies}{July 2026 -- Present}
+    {Associate Software Development Engineer}{Agartala, Tripura}
+    \resumeItemListStart
+      \resumeItem{Engineered a 10-stage case workflow across 11 administrative roles for the Revenue Department's
+        \textbf{Change of Land Use Portal} (Laravel 12, PHP 8, MySQL, JWT).}
+      % TODO (if known): add volume, e.g. "processing N applications a month" or "used by N officials".
+      \resumeItem{Integrated 6 government and payment systems: Land Records API (HMAC-SHA256 signed), e-GRAS payments with NEFT,
+        NGDRS property valuation, e-Jami mutation, SWAAGAT single sign-on and an SMS gateway.}
+      \resumeItem{Developed the diversion fee calculator, MIS and case-monitoring dashboards, a support ticket desk with
+        exports, and an admin impersonation module for support staff.}
+      \resumeItem{Automated repayment reconciliation in the \textbf{Core Loan Management System} (5 loan stages, from
+        disbursement to settlement) by integrating HDFC eCMS webhooks (Laravel 11), eliminating manual entry.}
+      % TODO (if known): "for N loan accounts" / "saving N hours a week".
+      \resumeItem{Built MIS and Trial Balance financial reports, including opening-balance calculations, for loan accounting.}
+      % TODO: only if true, add "and optimized the SQL queries behind them" -> covers the "Database Optimization" keyword.
+      \resumeItem{Designed REST APIs for 4 Flutter mobile app modules (projects, tasks, leave, employee statistics) on a
+        Laravel 10 HR and operations platform, and added 2 modules (Asset, Recruit).}
+      \resumeItem{Strengthened API security by auditing the leave API and fixing the vulnerabilities found.}
+      \resumeItem{Authored system design documentation and architecture diagrams for the land-use portal (LaTeX, Excalidraw).}
+    \resumeItemListEnd
+
+  \resumeSubheading
+    {Software World}{Sep 2023 -- June 2025}
+    {Web Developer Intern (Sep 2024 -- June 2025); Trainee (2023 -- 2024)}{Agartala, Tripura}
+    \resumeItemListStart
+      \resumeItem{Delivered a \textbf{Hospital Management System} in live hospital use with 5 modules: patient registration,
+        doctors, appointments, medical records and billing (PHP, MySQL, JavaScript, Bootstrap).}
+      \resumeItem{Led development of the live website and health-data management system for the
+        \textbf{Voluntary Health Association of Tripura}.}
+      \resumeItem{Contributed to production web applications using Python, Angular, PHP and MySQL.}
+    \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%---------- PROJECTS ----------
+\section{Projects}
+\resumeSubHeadingListStart
+  \resumeProjectHeading
+    {\textbf{LSTM Stock Prediction \& Portfolio Manager} $|$ \emph{Python, TensorFlow/Keras, Streamlit}}{Mar 2025 -- June 2026}
+    \resumeItemListStart
+      \resumeItem{Forecasted stock prices with LSTM time-series models and built a Streamlit dashboard for trends,
+        predictions, alerts and performance metrics.}
+      % TODO (if known): add the model's error, e.g. "with N% MAPE on held-out data".
+    \resumeItemListEnd
+  \resumeProjectHeading
+    {\textbf{Summarize.pro: AI Multi-Modal Book Summarizer} $|$ \emph{Python, NLP}}{Mar 2025 -- June 2026}
+    \resumeItemListStart
+      \resumeItem{Launched a free AI tool that summarizes books from text and other input formats into key insights.}
+      % TODO (if known): "used by N people".
+    \resumeItemListEnd
+  \resumeProjectHeading
+    {\textbf{AI Resume Builder} $|$ \emph{Open source}}{Aug 2025 -- Nov 2025}
+    \resumeItemListStart
+      \resumeItem{Created an open-source AI tool that generates resumes tailored to each user's profile.}
+    \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+%---------- SKILLS ----------
+\section{Skills}
+\begin{itemize}[leftmargin=0in, label={}]
+  \small{\item{
+    \textbf{Languages}: PHP, Python, JavaScript, SQL, HTML, CSS \\
+    \textbf{Backend}: Laravel (10--13), REST API Design, API Security (JWT, Sanctum, HMAC), Webhooks, Payment Gateway Integration \\
+    \textbf{Databases}: MySQL, MariaDB, Database Design \\
+    \textbf{Frontend}: React, Angular, Bootstrap, Tailwind CSS, Vite, Blade \\
+    \textbf{Data \& ML}: Machine Learning, scikit-learn, LSTM / Keras, Pandas, Streamlit, Jupyter Notebook, Tableau, Excel \\
+    \textbf{Practices \& Tools}: System Design Documentation, Workflow Automation, Git, GitHub, Postman, VS Code, LaTeX \\
+    \textbf{Professional}: Technical Writing, Communication, Problem Solving, Leadership, Team Collaboration, Project Management, Mentoring
+  }}
+\end{itemize}
+
+%---------- EDUCATION ----------
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {Techno College of Engineering Agartala}{2022 -- 2026}
+    {B.Tech in Artificial Intelligence \& Data Science}{CGPA: 8.02 / 10}
+  \resumeSubheading
+    {Netaji Subhash Vidyaniketan, Agartala (TBSE)}{2021 / 2019}
+    {Higher Secondary, Science: 69.2\% \,|\, Madhyamik: 76\%}{}
+\resumeSubHeadingListEnd
+
+%---------- CERTIFICATIONS ----------
+\section{Certifications \& Training}
+\resumeSubHeadingListStart
+  \small{\item{
+    \href{https://drive.google.com/file/d/1QlXVrJTUkSpy14A6CNf3HGMVMeh0y0V9/view?usp=drive_link}{NPTEL: Software Conceptual Design}, IIT Bombay (2025) \,|\,
+    \href{https://drive.google.com/file/d/1R7ZJVjkQcOVw6-SvEsVM7cFPY6zVg0Uy/view?usp=sharing}{NPTEL: Python for Data Science}, IIT Madras (2025) \\
+    \href{https://drive.google.com/file/d/1YVz8l7VpvOiUarQ7bdoPfNhR0s01-qUE/view?usp=sharing}{Web Development Using React}, TalkEng (2025) \,|\,
+    \href{https://drive.google.com/file/d/1Xyqi6YAE6VhoMIPlak_2jPTphff76zkk/view?usp=sharing}{Data Analytics with Python, Excel \& Tableau}, CTTC Bhubaneswar (2024) \,|\,
+    \href{https://drive.google.com/file/d/10ldy14oSgxGBUeByLLU4DSJHBwcoG3_K/view?usp=sharing}{Machine Learning Using Python}, NIELIT Agartala (2023)
+  }}
+\resumeSubHeadingListEnd
+
+%---------- LEADERSHIP ----------
+\section{Leadership \& Activities}
+\resumeSubHeadingListStart
+  \small{\item{
+    Coordinated the Coding Club at TCEA (2024 -- 2026), organizing peer learning and open-source contributions across campus. \\
+    Guided students through training initiatives as Student Coordinator of the Training \& Placement Cell, TCEA (2023 -- 2026). \\
+    Competed in the hackathon at Techno College of Engineering Agartala.
+  }}
+\resumeSubHeadingListEnd
+
+\end{document}

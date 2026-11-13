@@ -549,6 +549,62 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .log__body p { grid-column: 2; padding-bottom: 24px; max-width: 60ch; color: var(--dim); }
 .log__dates { display: block; margin-bottom: 6px; font: 400 0.75rem var(--mono); color: var(--ink); letter-spacing: 0.03em; }
 
+/* ---------- GitHub contributions (js/github.js) ---------- */
+/* Stats reuse the figures cards; the 3D city sits in a dark card below them. */
+.gh__stats { margin-bottom: 14px; }
+.gh__stats dt { font: 400 0.75rem/1.5 var(--mono); letter-spacing: 0.03em; color: var(--dim); max-width: 22ch; }
+.gh__stats > div:first-child dt { color: var(--olive); }
+.gh__stats dd {
+  font: 500 clamp(2rem, 4vw, 3.5rem) / 0.95 var(--display);
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+}
+.gh__stats dd small {
+  display: block; margin-top: 10px;
+  font: 400 0.75rem/1.4 var(--mono); letter-spacing: 0.02em; color: var(--dim);
+}
+.gh__stats > div:first-child dd small { color: var(--olive); }
+
+.gh__card {
+  position: relative; overflow: hidden;
+  aspect-ratio: 21 / 8; min-height: 360px; border-radius: var(--radius-sm);
+  background: radial-gradient(120% 80% at 50% 100%, #17113a, var(--black) 70%);
+}
+.gh__canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  touch-action: pan-y;             /* taps pick a bar; vertical swipes still scroll */
+  opacity: 0; transition: opacity 1.2s ease;
+}
+.gh__canvas.is-live { opacity: 1; }
+.gh__status {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  text-align: center; font: 400 0.8125rem var(--mono); color: var(--faint);
+}
+.gh__status[hidden], .gh__tip[hidden] { display: none; }
+.gh__tip {
+  position: absolute; z-index: 2; pointer-events: none;
+  translate: -50% calc(-100% - 14px);
+  padding: 8px 12px; border-radius: var(--radius-xs);
+  background: var(--paper); color: var(--coal); box-shadow: var(--shadow);
+  font: 500 0.75rem/1.3 var(--mono); white-space: nowrap;
+}
+.gh__foot {
+  position: absolute; inset: auto 0 0; z-index: 1; pointer-events: none;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px;
+  padding: 16px clamp(16px, 2vw, 24px);
+}
+.gh__foot .link { pointer-events: auto; color: var(--ink); }
+.gh__foot .link:hover { color: var(--on-accent); }
+.gh__legend { display: flex; align-items: center; gap: 4px; font: 400 0.6875rem var(--mono); color: var(--faint); }
+.gh__legend i { width: 11px; height: 11px; border-radius: 3px; background: var(--c); }
+.gh__legend i:nth-child(1) { --c: var(--olive); margin-left: 4px; }
+.gh__legend i:nth-child(2) { --c: var(--lime); }
+.gh__legend i:nth-child(3) { --c: color-mix(in srgb, var(--lime), var(--coral) 33%); }
+.gh__legend i:nth-child(4) { --c: color-mix(in srgb, var(--lime), var(--coral) 67%); }
+.gh__legend i:nth-child(5) { --c: var(--coral); margin-right: 4px; }
+@media (max-width: 760px) {
+  .gh__card { aspect-ratio: 4 / 4.6; min-height: 0; }
+}
+
 /* ---------- Contact (black band) ---------- */
 .contact {
   margin-top: clamp(80px, 11vw, 152px);
@@ -598,7 +654,75 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .footer .link { font-size: inherit; color: var(--ink); }
 .footer .link:hover { color: var(--on-accent); }
 
-/* ---------- Floating "Hire me" ---------- */
+/* ---------- Résumé: icons, button, viewer ---------- */
+/* A small sheet of paper with a folded corner; it lifts out of the button on hover. */
+.doc {
+  position: relative; display: inline-block; flex: none;
+  width: 0.78em; height: 1em; margin-right: 2px;
+  border: 1.5px solid currentColor; border-radius: 2px 5px 2px 2px;
+  background:
+    linear-gradient(currentColor, currentColor) 0.16em 0.42em / 0.34em 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) 0.16em 0.6em / 0.34em 1.5px no-repeat;
+  transition: translate 0.35s var(--ease), rotate 0.35s var(--ease);
+}
+.btn--resume { gap: 12px; }
+.btn--resume:hover .doc { translate: 0 -3px; rotate: -8deg; }
+
+/* Download icon: an arrow over a tray, drawn as two pieces so the arrow can drop in. */
+.dl { position: relative; display: inline-block; flex: none; width: 0.8em; height: 0.85em; }
+.dl::before, .dl::after { content: ""; position: absolute; background: currentColor; }
+.dl::before {
+  inset: 0 0 0.18em;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M5.2 0h1.6v7.4l2.6-2.6 1.1 1.1L6 10.4 1.5 5.9l1.1-1.1 2.6 2.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M5.2 0h1.6v7.4l2.6-2.6 1.1 1.1L6 10.4 1.5 5.9l1.1-1.1 2.6 2.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.dl::after { left: 0; right: 0; bottom: 0; height: 1.5px; border-radius: 1px; }
+:is(a, button):hover > .dl::before { animation: dl-nudge 0.9s var(--ease) infinite; }
+@keyframes dl-nudge { 50% { translate: 0 2px; } }
+/* Saving: the arrow drops into the tray, then a tick replaces it. */
+.is-saving .dl::before { animation: dl-drop 0.55s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+@keyframes dl-drop { to { translate: 0 120%; opacity: 0; } }
+.is-saved .dl::before {
+  animation: dl-tick 0.35s var(--ease);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4.4 10.2 0.6 6.4l1.2-1.2 2.6 2.6 5.8-5.8 1.2 1.2z'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4.4 10.2 0.6 6.4l1.2-1.2 2.6 2.6 5.8-5.8 1.2 1.2z'/%3E%3C/svg%3E");
+}
+@keyframes dl-tick { from { scale: 0.3; opacity: 0; } }
+
+/* The viewer: a full-screen dialog; the sheet inside grows out of the button that opened it. */
+.resume {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none;
+  margin: 0; padding: clamp(12px, 2.5vw, 28px); border: 0; background: transparent; overflow: hidden;
+}
+.resume[open] { display: grid; place-items: center; }
+.resume::backdrop { background: transparent; }
+.resume__shade { position: absolute; inset: 0; background: rgba(7, 6, 13, 0.62); }
+.resume__sheet {
+  position: relative; display: flex; flex-direction: column;
+  width: min(940px, 100%); height: 100%;
+  background: var(--surface); color: var(--ink);
+  border: 2px solid var(--coal); border-radius: var(--radius-sm);
+  box-shadow: 8px 8px 0 var(--coral);
+  overflow: hidden;
+}
+.resume__bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
+  padding: 14px 16px 14px 22px; border-bottom: 1px solid var(--rule);
+}
+.resume__title { display: flex; align-items: center; gap: 12px; font: 500 1.0625rem var(--display); }
+.resume__title > span:last-child { font: 400 0.75rem var(--mono); letter-spacing: 0.04em; color: var(--faint); }
+.resume__title .doc { color: var(--accent-text); }
+.resume__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.resume__actions .chip { display: inline-flex; align-items: center; gap: 8px; }
+.resume__dl { background: var(--coal); border-color: var(--coal); color: var(--coral); }
+.resume__dl:hover { background: var(--grad); color: var(--coal); border-color: var(--coal); }
+.resume__close kbd { font: inherit; opacity: 0.6; }
+.resume__body { position: relative; flex: 1; background: #e9e8ef; }
+.resume__body iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity 0.4s ease; }
+.resume__body iframe.is-loaded { opacity: 1; }
+.resume__loading { position: absolute; inset: 0; display: grid; place-items: center; font: 400 0.8125rem var(--mono); color: var(--faint); }
+
+/* ---------- Floating résumé button ---------- */
 /* Shown and hidden with `translate`, so it never collides with the
    magnetic offset script.js applies through `transform`. */
 .hire {

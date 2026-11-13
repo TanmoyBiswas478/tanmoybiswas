@@ -472,6 +472,46 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * GitHub contributions (Three.js, js/github.js): fetched and built as
+   * the section comes near, or in idle time after the contact orb.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Images marked loading="lazy" wait until they are nearly on screen, which
+   * on a busy page meant seconds of blank thumbnails. Once the page has
+   * loaded, fetch them all in the background (about 300 KB in total).
+   */
+  function initImages() {
+    const lazy = $$('img[loading="lazy"]');
+    if (!lazy.length) return;
+    const fetchAll = () => whenIdle(() => lazy.forEach((img) => { img.loading = 'eager'; }));
+    if (document.readyState === 'complete') fetchAll();
+    else window.addEventListener('load', fetchAll, { once: true });
+  }
+
+  function initGithub() {
+    const section = $('[data-github]');
+    if (!section || !scriptUrl) return;
+    let started = false;
+    const mount = () => {
+      if (started) return;
+      started = true;
+      nearby.disconnect();
+      import(new URL('github.js', scriptUrl).href)
+        .then(({ mountContributions }) => mountContributions(section, {
+          gsap, ScrollTrigger: hasGsap ? ScrollTrigger : null, still: !animate,
+        }))
+        .catch((error) => console.warn('GitHub contributions unavailable:', error))
+        .finally(refreshScroll);
+    };
+    const nearby = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) mount();
+    }, { rootMargin: '700px 0px' });
+    nearby.observe(section);
+    terrainSettled.then(() => setTimeout(() => whenIdle(mount), 3000));
+  }
+
+  /* ------------------------------------------------------------------ *
    * Section scenes (Three.js, js/scenes.js): one per section heading and
    * the footer. Each is set up, one per idle moment, as it comes within
    * ~900px of the screen, so no two set-ups share a frame mid-scroll.
@@ -479,7 +519,8 @@
 
   function initScenes() {
     const canvases = $$('[data-scene]');
-    if (!canvases.length || !scriptUrl) return;
+    // On phones these sit faintly behind the text; not worth the battery.
+    if (!canvases.length || !scriptUrl || window.matchMedia('(max-width: 760px)').matches) return;
     let queue = Promise.resolve();
     const nearby = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -765,34 +806,40 @@
    * ------------------------------------------------------------------ */
 
   /** Blocks marked [data-reveal] fade up as they enter, in small staggered groups. */
+  /**
+   * Run `callback(elements)` once per element, the first time it comes into
+   * view, or at once if it is already above the screen (a reload part-way
+   * down the page). An IntersectionObserver, not a ScrollTrigger: it needs no
+   * re-measuring when the page height changes (fonts, pinned sections, loaded
+   * data), so an entrance can never be missed and leave content invisible.
+   * Elements seen in the same frame arrive together, for staggering.
+   */
+  function onFirstView(elements, callback, rootMargin = '0px 0px -8% 0px') {
+    const observer = new IntersectionObserver((entries) => {
+      const ready = entries
+        .filter((entry) => entry.isIntersecting || entry.boundingClientRect.bottom < 0)
+        .map((entry) => entry.target);
+      if (!ready.length) return;
+      ready.forEach((el) => observer.unobserve(el));
+      callback(ready);
+    }, { rootMargin });
+    elements.forEach((el) => observer.observe(el));
+  }
+
   function initReveal() {
     const items = $$('[data-reveal]');
     if (!items.length || !animate) return;
 
     gsap.set(items, { autoAlpha: 0, y: 28 });
-    ScrollTrigger.batch(items, {
-      start: 'top 92%',
-      once: true,
-      onEnter: (batch) => gsap.to(batch, {
-        autoAlpha: 1,
-        y: 0,
-        duration: 0.8,
-        ease: 'power3.out',
-        stagger: 0.07,
-        overwrite: true,
-        // Each element gets its own GPU layer only while it moves; once it has
-        // landed, the inline styles go and the layer is handed back.
-        force3D: true,
-        clearProps: 'opacity,visibility,transform',
-      }),
-    });
-
-    // A reload part-way down the page restores the scroll position; anything
-    // already above the fold must not stay hidden waiting for an entrance.
-    requestAnimationFrame(() => {
-      const passed = items.filter((el) => el.getBoundingClientRect().bottom < 0);
-      if (passed.length) gsap.set(passed, { autoAlpha: 1, y: 0 });
-    });
+    onFirstView(items, (batch) => gsap.to(batch, {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      stagger: 0.07,
+      overwrite: true,
+      clearProps: 'opacity,visibility,transform',
+    }));
   }
 
   /** Section headings rise into place one word at a time. */
@@ -803,9 +850,11 @@
       const words = splitText(heading, 'word');
       if (!animate) continue;
 
-      gsap.timeline({ scrollTrigger: { trigger: head, start: 'top 88%', once: true } })
-        .from($('.section__no', head), { autoAlpha: 0, x: -12, duration: 0.6, ease: 'power3.out' }, 0)
+      const no = $('.section__no', head);
+      const intro = gsap.timeline({ paused: true })
+        .from(no, { autoAlpha: 0, x: -12, duration: 0.6, ease: 'power3.out' }, 0)
         .from(words, { yPercent: 115, duration: 0.9, ease: 'expo.out', stagger: 0.045 }, 0);
+      onFirstView([head], () => intro.play());
     }
   }
 
@@ -837,13 +886,10 @@
       if (!Number.isFinite(target)) continue;
 
       const counter = { value: 0 };
-      gsap.to(counter, {
-        value: target,
-        duration: 1.4,
-        ease: 'power2.out',
-        onUpdate: () => { el.textContent = counter.value.toFixed(decimals).padStart(pad, '0'); },
-        scrollTrigger: { trigger: el, start: 'top 92%', once: true },
-      });
+      const show = () => { el.textContent = counter.value.toFixed(decimals).padStart(pad, '0'); };
+      const count = gsap.to(counter, { value: target, duration: 1.4, ease: 'power2.out', paused: true, onUpdate: show });
+      show();
+      onFirstView([el], () => count.play());
     }
   }
 
@@ -1117,6 +1163,23 @@
     }
     document.body.append(preview);
 
+    // Fetch every preview (~30 KB each) as the list nears, so the first hover
+    // shows its image at once instead of waiting behind the Three.js downloads.
+    const preload = () => {
+      for (const image of images.values()) {
+        if (image.src) continue;
+        image.fetchPriority = 'high';
+        image.src = image.dataset.src;
+        image.decode?.().catch(() => {});
+      }
+    };
+    const nearby = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+      nearby.disconnect();
+      preload();
+    }, { rootMargin: '1200px 0px' });
+    nearby.observe(list);
+
     const follow = { duration: 0.55, ease: 'power3.out' };
     const toX = gsap.quickTo(preview, 'x', follow);
     const toY = gsap.quickTo(preview, 'y', follow);
@@ -1245,6 +1308,137 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Résumé. "View résumé" grows into a full-height sheet holding the PDF
+   * (and shrinks back into the button on close). Phones, and browsers
+   * without a built-in PDF viewer, just open the PDF itself. Download
+   * buttons drop their arrow into the tray and tick once saved.
+   * ------------------------------------------------------------------ */
+
+  /** Set by initResume: opens the viewer (used by the command palette). */
+  let openResume = null;
+
+  function initResume() {
+    const trigger = $('[data-resume]');
+    const dialog = $('[data-resume-dialog]');
+    const pdf = trigger?.getAttribute('href');
+    if (!pdf) return;
+
+    // Is the PDF there? Asked once; until it is uploaded, the buttons say so
+    // instead of downloading an error page.
+    let exists = null;
+    let known = false;
+    const check = () => (exists ??= fetch(pdf, { method: 'HEAD' })
+      .then((response) => response.ok && !/html/.test(response.headers.get('content-type') || ''))
+      .catch(() => false)
+      .then((ok) => { known = ok; return ok; }));
+    const missing = async () => {
+      if (await check()) return false;
+      toast('Résumé PDF not uploaded yet');
+      return true;
+    };
+
+    // Download buttons: the arrow drops into the tray, then a tick and "Saved".
+    for (const link of $$('[data-resume-download]')) {
+      const label = $('[data-label]', link);
+      const original = label?.textContent;
+      let timer = 0;
+      link.addEventListener('click', async (event) => {
+        if (!known) {
+          event.preventDefault();
+          if (await missing()) return;
+          link.click();        // now known to exist: run the real download
+          return;
+        }
+        clearTimeout(timer);
+        link.classList.remove('is-saved');
+        link.classList.add('is-saving');
+        timer = setTimeout(() => {
+          link.classList.replace('is-saving', 'is-saved');
+          if (label) label.textContent = 'Saved';
+          timer = setTimeout(() => {
+            link.classList.remove('is-saved');
+            if (label) label.textContent = original;
+          }, 1800);
+        }, 550);
+      });
+    }
+
+    if (!dialog) return;
+    const inline = () => navigator.pdfViewerEnabled !== false && window.matchMedia('(min-width: 761px)').matches;
+
+    const sheet = $('[data-resume-sheet]', dialog);
+    const shade = $('.resume__shade', dialog);
+    const fades = $$('[data-resume-fade]', dialog);
+    const frame = $('[data-resume-frame]', dialog);
+    frame.addEventListener('load', () => frame.classList.add('is-loaded'));
+    let origin = null;      // the element the sheet grows from and returns to
+    let busy = false;
+
+    /** A clip-path that crops the sheet down to el's box (or a small centred pill). */
+    function clipTo(el) {
+      const box = sheet.getBoundingClientRect();
+      const b = el?.getBoundingClientRect();
+      const onScreen = b && b.width > 0 && b.bottom > 0 && b.top < innerHeight;
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const t = onScreen ? b : { top: cy - 24, bottom: cy + 24, left: cx - 90, right: cx + 90, height: 48 };
+      return `inset(${t.top - box.top}px ${box.right - t.right}px ${box.bottom - t.bottom}px ${t.left - box.left}px round ${t.height / 2}px)`;
+    }
+
+    async function open(from) {
+      if (busy || dialog.open) return;
+      if (await missing()) return;
+      if (!inline()) {
+        window.open(pdf, '_blank', 'noopener');
+        return;
+      }
+      busy = true;
+      origin = from;
+      if (!frame.getAttribute('src')) frame.src = `${pdf}#view=FitH&navpanes=0`;
+      lenis?.stop();
+      dialog.showModal();
+      if (!animate) { busy = false; return; }
+      gsap.timeline({ onComplete: () => { busy = false; } })
+        .fromTo(shade, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power2.out' }, 0)
+        .fromTo(sheet, { clipPath: clipTo(origin), boxShadow: '0px 0px 0px #ff6b8b' }, {
+          clipPath: 'inset(0px 0px 0px 0px round 12px)', boxShadow: '8px 8px 0px #ff6b8b',
+          duration: 0.75, ease: 'expo.inOut', clearProps: 'clipPath,boxShadow',
+        }, 0)
+        .fromTo(fades, { opacity: 0, y: 14 }, {
+          opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power3.out', clearProps: 'opacity,transform',
+        }, 0.45);
+    }
+
+    function close() {
+      if (busy || !dialog.open) return;
+      const done = () => {
+        dialog.close();
+        gsap?.set([shade, sheet, ...fades], { clearProps: 'opacity,transform,clipPath,boxShadow' });
+        lenis?.start();
+        busy = false;
+        origin?.focus({ preventScroll: true });
+      };
+      if (!animate) { done(); return; }
+      busy = true;
+      gsap.timeline({ onComplete: done })
+        .to(fades, { opacity: 0, duration: 0.2, ease: 'power1.in' }, 0)
+        .fromTo(sheet, { clipPath: 'inset(0px 0px 0px 0px round 12px)', boxShadow: '8px 8px 0px #ff6b8b' },
+          { clipPath: clipTo(origin), boxShadow: '0px 0px 0px #ff6b8b', duration: 0.6, ease: 'expo.inOut' }, 0.1)
+        .to(shade, { opacity: 0, duration: 0.4, ease: 'power2.in' }, 0.3);
+    }
+
+    trigger.addEventListener('click', (event) => {
+      // Ctrl/Cmd/Shift-click and middle-click keep their usual "open elsewhere" meaning.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      open(trigger);
+    });
+    $$('[data-resume-close]', dialog).forEach((el) => el.addEventListener('click', close));
+    dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });   // Esc
+    openResume = () => open(null);
+  }
+
+  /* ------------------------------------------------------------------ *
    * Command palette (Ctrl/Cmd + K, or "/").
    *
    * Commands are gathered from the page itself (sections, projects and
@@ -1295,6 +1489,7 @@
     for (const link of $$('a[data-command]')) {
       commands.push({ label: link.dataset.command, kind: 'Link', run: open(link.href) });
     }
+    if (openResume) commands.push({ label: 'View résumé', kind: 'Action', run: () => openResume() });
     const email = $('[data-copy]')?.dataset.copy;
     if (email) {
       commands.push({ label: 'Copy email address', kind: 'Action', run: () => copyText(email, 'Email address copied') });
@@ -1478,7 +1673,7 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initPalette, initTerrain, initStory, initOrb, initScenes, initFooterName, initCursor,
+    initCopy, initHireButton, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initGithub, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 

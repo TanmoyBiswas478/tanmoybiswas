@@ -133,6 +133,7 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
   let renderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
+    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
   } catch {
     return false;
   }

@@ -472,6 +472,33 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Skill globe (Three.js, js/skills.js) in the "Tools I use" card,
+   * loaded as the card comes near. Without WebGL the card stays a list.
+   * ------------------------------------------------------------------ */
+
+  function initSkills() {
+    const root = $('[data-skills]');
+    if (!root || !scriptUrl) return;
+    const probe = document.createElement('canvas');
+    if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) return;
+    root.classList.add('has-globe');
+    let started = false;
+    const mount = () => {
+      if (started) return;
+      started = true;
+      nearby.disconnect();
+      import(new URL('skills.js', scriptUrl).href)
+        .then(({ mountSkills }) => mountSkills(root, { gsap, still: !animate }))
+        .then((ok) => { if (!ok) root.classList.remove('has-globe'); })
+        .catch((error) => { root.classList.remove('has-globe'); console.warn('Skill globe unavailable:', error); });
+    };
+    const nearby = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) whenIdle(mount);
+    }, { rootMargin: '700px 0px' });
+    terrainSettled.then(() => nearby.observe(root));
+  }
+
+  /* ------------------------------------------------------------------ *
    * GitHub contributions (Three.js, js/github.js): fetched and built as
    * the section comes near, or in idle time after the contact orb.
    * ------------------------------------------------------------------ */
@@ -1686,7 +1713,7 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initGithub, initScenes, initFooterName, initCursor,
+    initCopy, initHireButton, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 

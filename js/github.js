@@ -133,6 +133,7 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
   let renderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
+    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
   } catch {
     if (status) status.textContent = `${plural(data.total, 'contribution')} in the last year.`;
     return false;

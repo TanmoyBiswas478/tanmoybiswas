@@ -121,37 +121,6 @@ function galaxy() {
   return { positions, mix, size: 18 };
 }
 
-/** Tech atom: a pulsing core with three orbits, each carrying a bright electron. */
-function atom() {
-  const core = 900, perRing = 520, electron = 70, rings = 3;
-  const count = core + rings * (perRing + electron);
-  const positions = new Float32Array(count * 3);
-  const mix = new Float32Array(count);
-  const ring = new Float32Array(count);              // 0 = core, 1..3 = orbit number
-  const seeds = new Float32Array(count);
-  let i = 0;
-  for (let n = 0; n < core; n++, i++) {
-    const y = 1 - (n / (core - 1)) * 2;                // Fibonacci sphere shell
-    const r = Math.sqrt(1 - y * y), a = n * 2.39996, s = 0.62 + rand(-0.06, 0.06);
-    positions.set([Math.cos(a) * r * s, y * s, Math.sin(a) * r * s], i * 3);
-    mix[i] = (y + 1) / 2; seeds[i] = Math.random();
-  }
-  for (let k = 1; k <= rings; k++) {
-    // Orbits lie flat in xy here; the shader spins and tilts them.
-    for (let n = 0; n < perRing; n++, i++) {
-      const a = (n / perRing) * TAU, R = 1.9 + rand(-0.04, 0.04);
-      positions.set([Math.cos(a) * R, Math.sin(a) * R, rand(-0.03, 0.03)], i * 3);
-      mix[i] = 0.15 + 0.25 * k / rings; ring[i] = k; seeds[i] = Math.random() * 0.5;
-    }
-    for (let n = 0; n < electron; n++, i++) {
-      const a = rand(-0.09, 0.09), R = 1.9 + rand(-0.08, 0.08);
-      positions.set([Math.cos(a) * R, Math.sin(a) * R, rand(-0.08, 0.08)], i * 3);
-      mix[i] = 1; ring[i] = k; seeds[i] = 0.7 + Math.random() * 0.3;
-    }
-  }
-  return { positions, mix, ring, seeds, size: 30 };
-}
-
 /* -- Per-kind motion (GLSL) and framing -- */
 
 const KINDS = {
@@ -188,21 +157,6 @@ const KINDS = {
            p.xz = mat2(cos(a), -sin(a), sin(a), cos(a)) * p.xz;`,
     camera: 6.5, tilt: [0.85, 0], additive: true,
   },
-  atom: {
-    build: atom,
-    move: `if (aRing > 0.5) {
-             float k = aRing - 1.0;
-             float a = uTime * (0.9 + k * 0.3);
-             p.xy = mat2(cos(a), -sin(a), sin(a), cos(a)) * p.xy;
-             p.yz = mat2(cos(1.2), -sin(1.2), sin(1.2), cos(1.2)) * p.yz;
-             float tz = k * 2.0944;
-             p.xy = mat2(cos(tz), -sin(tz), sin(tz), cos(tz)) * p.xy;
-           } else {
-             p *= 1.0 + 0.08 * sin(uTime * 2.2 + aSeed * 6.28);
-             mixShift = 0.15 * sin(uTime * 1.5);
-           }`,
-    camera: 6.4, tilt: [0.3, 0],
-  },
 };
 
 const vertexShader = (move) => /* glsl */ `
@@ -211,7 +165,6 @@ const vertexShader = (move) => /* glsl */ `
   uniform float uPixelRatio;
   attribute float aSeed;
   attribute float aMix;
-  attribute float aRing;
   varying float vMix;
   varying float vAlpha;
 
@@ -254,6 +207,8 @@ function sharedRenderer() {
     try {
       shared = new WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
       shared.setPixelRatio(1);   // sizes below are already in device pixels
+      // No synchronous shader-status queries: they froze the page while the GPU compiled.
+      shared.debug.checkShaderErrors = false;
     } catch {
       shared = false;
     }
@@ -274,16 +229,12 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
 
   const shape = spec.build();
   const count = shape.mix.length;
-  let seeds = shape.seeds;
-  if (!seeds) {
-    seeds = new Float32Array(count);
-    for (let i = 0; i < count; i++) seeds[i] = Math.random();
-  }
+  const seeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) seeds[i] = Math.random();
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(shape.positions, 3));
   geometry.setAttribute('aMix', new BufferAttribute(shape.mix, 1));
   geometry.setAttribute('aSeed', new BufferAttribute(seeds, 1));
-  geometry.setAttribute('aRing', new BufferAttribute(shape.ring ?? new Float32Array(count), 1));
 
   const uniforms = {
     uTime: { value: 0 }, uSize: { value: shape.size }, uPixelRatio: { value: pixelRatio },
@@ -331,12 +282,22 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
     group.scale.setScalar(still ? 1 : 1 - (1 - grow) ** 3);
     const { width, height } = canvas;
     if (!width || !height) return;
+    // The shared buffer only ever grows. Resizing it to each scene in turn
+    // (two scenes on screen at once) reallocated it every frame, which stalled
+    // the GPU for up to half a second. Each scene draws into the bottom-left
+    // corner instead, clipped by the scissor so clearing costs only that area.
     const size = renderer.domElement;
-    if (size.width !== width || size.height !== height) renderer.setSize(width, height, false);
+    if (size.width < width || size.height < height) {
+      renderer.setSize(Math.max(size.width, width), Math.max(size.height, height), false);
+    }
+    renderer.setViewport(0, 0, width, height);
+    renderer.setScissor(0, 0, width, height);
+    renderer.setScissorTest(true);
     renderer.render(scene, camera);
     // Copy now, in the same task: the WebGL frame is cleared once it ends.
+    // WebGL's origin is bottom-left, so that corner is the bottom rows here.
     context.clearRect(0, 0, width, height);
-    context.drawImage(size, 0, 0);
+    context.drawImage(size, 0, size.height - height, width, height, 0, 0, width, height);
   }
 
   function resize() {

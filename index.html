@@ -408,9 +408,15 @@
           </div>
         </div>
 
-        <div class="toolbox" data-reveal>
-          <h3 class="toolbox__title">Tools I use</h3>
-          <canvas class="toolbox__scene" data-scene="atom" aria-hidden="true"></canvas>
+        <div class="toolbox on-dark" data-reveal data-skills>
+          <div class="toolbox__head">
+            <h3 class="toolbox__title">Tools I use</h3>
+            <p class="toolbox__hint">Drag the globe &middot; point at a tool</p>
+          </div>
+          <div class="skills" aria-hidden="true">
+            <canvas class="skills__canvas" data-skills-canvas></canvas>
+            <div class="skills__labels" data-skills-labels></div>
+          </div>
           <dl class="toolbox__grid">
             <div><dt>Backend</dt><dd>Laravel</dd><dd>PHP</dd><dd>Python</dd><dd>MySQL, MariaDB</dd><dd>REST APIs</dd><dd>JWT</dd></div>
             <div><dt>Frontend</dt><dd>JavaScript</dd><dd>React</dd><dd>Angular</dd><dd>Bootstrap</dd><dd>Tailwind CSS</dd><dd>Vite</dd></div>

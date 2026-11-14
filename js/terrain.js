@@ -171,6 +171,7 @@ export async function mountTerrain(canvas, { gsap, still = false, scroll = { pro
   let renderer;
   try {
     renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
+    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
   } catch {
     return false;
   }

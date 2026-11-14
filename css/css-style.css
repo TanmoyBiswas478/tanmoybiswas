@@ -225,6 +225,15 @@ kbd {
   transition: color var(--fast), border-color var(--fast);
 }
 .nav__search:hover { color: var(--ink); border-color: var(--ink); }
+/* Six links + search do not fit between tablet and small laptop: drop the numbers and the word "Search". */
+.nav__search kbd { white-space: nowrap; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .nav__no { display: none; }
+  .nav__links { gap: clamp(14px, 2vw, 24px); }
+  .nav__search { padding-left: 8px; }
+  .nav__search > span { display: none; }
+  .nav__brand span:last-child { white-space: nowrap; }
+}
 .nav__toggle { display: none; font-size: 0.875rem; font-weight: 500; padding: 8px 0 8px 8px; }
 
 /* Things that only make sense once script.js is running */
@@ -501,6 +510,16 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 }
 .toolbox__title { font: 400 0.75rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
 .toolbox__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 24px; }
+/* The tech atom (js/scenes.js, kind "atom") fills the empty column under the title. */
+.toolbox__title { grid-column: 1; grid-row: 1; }
+.toolbox__scene {
+  grid-column: 1; grid-row: 2; align-self: start; justify-self: center;
+  width: 100%; max-width: 280px; aspect-ratio: 1; pointer-events: none;
+  opacity: 0; transition: opacity 1.2s ease;
+}
+.toolbox__scene.is-live { opacity: 1; }
+.toolbox__grid { grid-column: 2; grid-row: 1 / span 2; }
+@media (max-width: 760px) { .toolbox__scene { display: none; } .toolbox__grid { grid-column: 1; grid-row: auto; } }
 .toolbox__grid > div { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; }
 .toolbox dt { flex-basis: 100%; margin-bottom: 4px; font: 400 0.75rem var(--mono); color: var(--faint); }
 .toolbox dd {
@@ -566,7 +585,7 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 
 .gh__card {
   position: relative; overflow: hidden;
-  aspect-ratio: 21 / 8; min-height: 360px; border-radius: var(--radius-sm);
+  aspect-ratio: 21 / 8; min-height: 360px; width: 100%; border-radius: var(--radius-sm); /* explicit width: stops min-height widening the card past the screen */
   background: radial-gradient(120% 80% at 50% 100%, #17113a, var(--black) 70%);
 }
 .gh__canvas {

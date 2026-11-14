@@ -616,13 +616,13 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 /* The 3D orb (js/orb.js) sits behind the text on the right and fades in once drawn. */
 .contact__orb {
   position: absolute; z-index: 0; pointer-events: none;
-  top: 4%; right: -14%; width: min(62vw, 820px); height: min(62vw, 820px);
+  top: 17%; right: -2%; width: min(46vw, 660px); height: min(46vw, 660px);
   opacity: 0; transition: opacity 1.2s ease;
 }
 .contact__orb.is-live { opacity: 0.7; }
-@media (max-width: 760px) { .contact__orb { right: -30%; width: 110vw; height: 110vw; } .contact__orb.is-live { opacity: 0.5; } }
+@media (max-width: 760px) { .contact__orb { top: 30%; right: -30%; width: 110vw; height: 110vw; } .contact__orb.is-live { opacity: 0.5; } }
 .contact__mail {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 20px 32px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 20px 32px;
   padding-block: clamp(8px, 2vw, 24px) clamp(40px, 6vw, 80px);
 }
 .contact__address {
@@ -631,6 +631,17 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
   padding-bottom: 0.08em;
   transition: background-size 0.45s var(--ease), color var(--fast);
 }
+/* Solid chip so the orb's particles never show through the button. */
+.contact__mail .chip { background: var(--bg); position: relative; }
+/* Address on two lines (name / @domain) so the orb has the right side to itself. */
+.contact__address span { display: block; }
+/* Email sits in the same column as the heading and the contact values. */
+@media (min-width: 761px) {
+  .contact__mail { display: grid; grid-template-columns: minmax(140px, 1fr) 4fr; column-gap: var(--gutter); row-gap: 20px; padding-top: 0; }
+  .contact__mail > * { grid-column: 2; justify-self: start; }
+  .contact__address { font-size: clamp(2rem, 4.6vw, 4.25rem); }
+}
+.contact__address { display: inline-block; }
 .contact__address:hover { background-size: 100% 0.06em; color: var(--accent-text); }
 
 .contact__list { border-top: 1px solid var(--rule); }

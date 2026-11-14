@@ -500,7 +500,7 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
   display: grid; grid-template-columns: minmax(140px, 1fr) 4fr; gap: 24px var(--gutter);
 }
 .toolbox__title { font: 400 0.75rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
-.toolbox__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 24px; }
+.toolbox__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 24px; }
 .toolbox__grid > div { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; }
 .toolbox dt { flex-basis: 100%; margin-bottom: 4px; font: 400 0.75rem var(--mono); color: var(--faint); }
 .toolbox dd {

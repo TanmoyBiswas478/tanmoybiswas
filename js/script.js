@@ -484,7 +484,18 @@
   function initImages() {
     const lazy = $$('img[loading="lazy"]');
     if (!lazy.length) return;
-    const fetchAll = () => whenIdle(() => lazy.forEach((img) => { img.loading = 'eager'; }));
+    // Decoding a thumbnail cost 100-370 ms on the main thread the first time it
+    // scrolled into view (a visible hitch). decode() does that work off the
+    // main thread now, one image per idle moment, so scrolling never waits.
+    const decodeNext = (queue) => {
+      const img = queue.shift();
+      if (!img) return;
+      img.decode?.().catch(() => {}).finally(() => whenIdle(() => decodeNext(queue)));
+    };
+    const fetchAll = () => whenIdle(() => {
+      lazy.forEach((img) => { img.loading = 'eager'; });
+      decodeNext([...lazy]);
+    });
     if (document.readyState === 'complete') fetchAll();
     else window.addEventListener('load', fetchAll, { once: true });
   }

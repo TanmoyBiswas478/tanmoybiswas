@@ -518,9 +518,11 @@
    * ------------------------------------------------------------------ */
 
   function initScenes() {
-    const canvases = $$('[data-scene]');
-    // On phones these sit faintly behind the text; not worth the battery.
-    if (!canvases.length || !scriptUrl || window.matchMedia('(max-width: 760px)').matches) return;
+    // On phones the small heading scenes sit faintly behind the text and are
+    // skipped to save battery; the footer galaxy behind the name always runs.
+    const phone = window.matchMedia('(max-width: 760px)').matches;
+    const canvases = $$('[data-scene]').filter((canvas) => !phone || canvas.dataset.scene === 'galaxy');
+    if (!canvases.length || !scriptUrl) return;
     let queue = Promise.resolve();
     const nearby = new IntersectionObserver((entries) => {
       for (const entry of entries) {

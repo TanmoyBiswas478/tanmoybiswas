@@ -955,5 +955,7 @@ html.lenis, html.lenis body { height: auto; }
   .section__head.has-scene > :not(.scene) { max-width: none; }
   .scene { width: 62vw; right: calc(-1 * var(--gutter)); }
   .scene.is-live { opacity: 0.35; }
+  /* The footer galaxy keeps its full width on phones (the rule above shrinks small scenes). */
+  .scene--footer { width: 160vw; right: auto; }
   .scene--footer.is-live { opacity: 0.6; }
 }

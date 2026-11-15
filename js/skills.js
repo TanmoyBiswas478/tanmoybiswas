@@ -288,8 +288,10 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
       if (!inGroup) opacity *= 0.25;
       if (lit) opacity = 1;
       const label = labels[k];
-      label.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -150%) scale(${(0.82 + front * 0.22).toFixed(3)})`;
       const shown = Math.round(opacity * 40) / 40;
+      // Hidden labels (the back of the globe) are not moved: no style work for them.
+      if (shown === 0 && label.shown === 0) continue;
+      label.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -150%) scale(${(0.82 + front * 0.22).toFixed(3)})`;
       if (shown !== label.shown) {
         label.shown = shown;
         label.el.style.opacity = shown;

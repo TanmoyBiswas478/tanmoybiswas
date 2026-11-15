@@ -4,3 +4,15 @@ resume/*.log
 resume/*.aux
 resume/*.out
 github-profile
+# Old site and leftovers: never deploy (the old folder holds credentials/recovery codes)
+OLD_TECHMEHFIL
+work.txt
+css/css-style copy.css
+js/script copy.js
+js/script3.js
+js/2.0.12-typed.min.js
+js/2.3.4-owl.carousel.min.js
+js/4.0.1-jquery.waypoints.min.js
+js/a076d05399.js
+js/jquery-3.6.0.min.js
+js/vendor/lenis.min.js

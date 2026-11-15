@@ -37,7 +37,7 @@
       + 'Run start-local.cmd and use http://localhost:5500 instead.');
   }
 
-  const { gsap, ScrollTrigger, Lenis } = window;
+  const { gsap, ScrollTrigger } = window;
   const hasGsap = Boolean(gsap && ScrollTrigger);
   if (hasGsap) gsap.registerPlugin(ScrollTrigger);
 
@@ -310,36 +310,15 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Smooth scrolling (Lenis). Wheel and trackpad scrolling glide to a stop
-   * instead of stepping; touch scrolling stays native. Lenis runs on GSAP's
-   * ticker and reports every scroll to ScrollTrigger, so all scroll-linked
-   * animation stays in step with it.
+   * Scrolling is the browser's own. Lenis (JS smooth scrolling) moved the
+   * page from the main thread every frame, so any busy moment there (a 3D
+   * scene, a reveal, an image) froze the page itself: the "stuck" feeling.
+   * Native scrolling runs on the compositor thread and keeps moving while
+   * scripts work; every ScrollTrigger effect still follows it. The lenis
+   * variable stays null, which the rest of this file already handles.
    * ------------------------------------------------------------------ */
 
-  function initSmoothScroll() {
-    if (!animate || !Lenis) return;
-    lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 1 });
-
-    // Lenis rewrites <html>'s class at the start and end of every scroll
-    // (lenis-scrolling). A class change on <html> makes the browser restyle
-    // the whole page, including every split letter and word, so scrolling
-    // stuttered at each start and stop. Only lenis-stopped is used by the CSS
-    // as a state, so keep the classes fixed and toggle that one alone.
-    lenis.updateClassName = function updateClassName() {
-      const wanted = `lenis lenis-smooth${this.isStopped ? ' lenis-stopped' : ''}`;
-      if (wanted === this.appliedClassName) return;
-      this.appliedClassName = wanted;
-      this.cleanUpClassName();
-      this.rootElement.className = `${this.rootElement.className} ${wanted}`.trim();
-    };
-    lenis.updateClassName();
-
-    lenis.on('scroll', ScrollTrigger.update);
-    // Prioritised, so Lenis scrolls first in each frame, before GSAP's tweens
-    // write styles; scrolling after those writes forced an extra layout pass.
-    gsap.ticker.add((time) => lenis.raf(time * 1000), false, true);
-    gsap.ticker.lagSmoothing(0);
-  }
+  function initSmoothScroll() {}
 
   /* ------------------------------------------------------------------ *
    * Cursor follower: a small inverting dot that trails the pointer and
@@ -774,12 +753,14 @@
     const toggle = $('[data-nav-toggle]', nav);
     const label = $('.nav__toggle-label', nav);
     const links = $$('.nav__links a', nav);
-    // Lenis already knows the position; asking the window for it here forced a layout.
-    const scrollY = () => (lenis ? lenis.scroll : window.scrollY);
-    let lastY = scrollY();
+    // Read the position in the scroll event itself, before anything has written
+    // styles this frame; reading it later, inside the animation frame after
+    // GSAP's writes, forced an extra layout on every frame of scrolling.
+    let currentY = window.scrollY;
+    let lastY = currentY;
 
-    const onScroll = oncePerFrame(() => {
-      const y = scrollY();
+    const update = oncePerFrame(() => {
+      const y = currentY;
       nav.classList.toggle('is-scrolled', y > 8);
       // Ignore tiny movements so the bar does not flicker on trackpads.
       if (Math.abs(y - lastY) > 6) {
@@ -787,6 +768,7 @@
         lastY = y;
       }
     });
+    const onScroll = () => { currentY = window.scrollY; update(); };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 

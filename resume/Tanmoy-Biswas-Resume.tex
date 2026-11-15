@@ -29,8 +29,8 @@
 \addtolength{\oddsidemargin}{-0.5in}
 \addtolength{\evensidemargin}{-0.5in}
 \addtolength{\textwidth}{1in}
-\addtolength{\topmargin}{-.55in}
-\addtolength{\textheight}{1.1in}
+\addtolength{\topmargin}{-.62in}
+\addtolength{\textheight}{1.25in}
 
 \urlstyle{same}
 \raggedbottom
@@ -40,6 +40,7 @@
 % Plain uppercase headings: small caps can come out of the PDF as odd glyphs for some parsers.
 % (\MakeUppercase goes in the last argument, where it receives only the title text.)
 \titleformat{\section}{\vspace{-5pt}\raggedright\large\bfseries}{}{0em}{\MakeUppercase}[\color{black}\titlerule\vspace{-5pt}]
+\titlespacing*{\section}{0pt}{10pt}{8pt}
 
 \newcommand{\resumeItem}[1]{\item\small{#1\vspace{-2pt}}}
 \newcommand{\resumeSubheading}[4]{
@@ -57,7 +58,7 @@
 \renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
-\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.18in]}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.18in, itemsep=0pt, parsep=0pt, topsep=2pt]}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 
 % Your live portfolio address. CHECK THIS before compiling.
@@ -75,19 +76,18 @@
 %---------- HEADING (plain text, one column: parsers read it in order) ----------
 \begin{center}
   {\Huge\bfseries Tanmoy Biswas} \\[2pt]
-  \small Associate Software Development Engineer \,|\, Agartala, Tripura, India \\[2pt]
+  \small Associate Software Development Engineer \,|\, Agartala, Tripura, India \,|\, \href{https://\portfolio}{\portfolio} \\[2pt]
   \small +91-8258903821 \,|\,
   \href{mailto:tanmoybiswas478@gmail.com}{tanmoybiswas478@gmail.com} \,|\,
   \href{https://www.linkedin.com/in/tanmoybiswassde}{linkedin.com/in/tanmoybiswassde} \,|\,
-  \href{https://github.com/TanmoyBiswas478}{github.com/TanmoyBiswas478} \,|\,
-  \href{https://\portfolio}{\portfolio}
+  \href{https://github.com/TanmoyBiswas478}{github.com/TanmoyBiswas478}
 \end{center}
 
 %---------- SUMMARY ----------
 \section{Summary}
-\small{Software engineer developing and maintaining 4 production Laravel systems for a state government department, a
+\small{Software engineer building and maintaining 4 production Laravel systems for a state government department, a
 lending business and internal teams. Experienced in REST API design, API security, workflow automation, payment and bank integrations, MIS
-reporting, and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligence \& Data Science (CGPA 8.02) with hands-on machine learning work in Python.}
+reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligence \& Data Science (CGPA 8.02) with hands-on machine learning in Python.}
 
 %---------- EXPERIENCE ----------
 \section{Work Experience}
@@ -123,7 +123,7 @@ reporting, and CI/CD deployment on Linux servers. B.Tech in Artificial Intellige
     \resumeItemListStart
       \resumeItem{Delivered a \textbf{Hospital Management System} in live hospital use with 5 modules: patient registration,
         doctors, appointments, medical records and billing (PHP, MySQL, JavaScript, Bootstrap).}
-      \resumeItem{Led development of the live website and health-data management system for the
+      \resumeItem{Led development of the live website and health-data system for the
         \textbf{Voluntary Health Association of Tripura}.}
       \resumeItem{Contributed to production web applications using Python, Angular, PHP and MySQL.}
     \resumeItemListEnd
@@ -137,7 +137,7 @@ reporting, and CI/CD deployment on Linux servers. B.Tech in Artificial Intellige
     {\textbf{LSTM Stock Prediction \& Portfolio Manager} $|$ \emph{Python, TensorFlow/Keras, Streamlit}}{Mar 2025 -- June 2026}
     \resumeItemListStart
       \resumeItem{Forecasted stock prices with LSTM time-series models and built a Streamlit dashboard for trends,
-        predictions, alerts and performance metrics.}
+        predictions, alerts and metrics.}
       % TODO (if known): add the model's error, e.g. "with N% MAPE on held-out data".
     \resumeItemListEnd
   \resumeProjectHeading
@@ -157,14 +157,13 @@ reporting, and CI/CD deployment on Linux servers. B.Tech in Artificial Intellige
 \section{Skills}
 \begin{itemize}[leftmargin=0in, label={}]
   \small{\item{
-    \textbf{Languages}: PHP, Python, JavaScript, SQL, HTML, CSS \\
-    \textbf{Backend}: Laravel (10--13), REST API Design, API Security (JWT, Sanctum, HMAC), Webhooks, Payment Gateway Integration \\
-    \textbf{Databases}: MySQL, MariaDB, Database Design \\
+    \textbf{Languages}: PHP, Python, JavaScript, SQL, HTML, CSS \,|\, \textbf{Databases}: MySQL, MariaDB, Database Design \\
+    \textbf{Backend}: Laravel (10--13), REST API Design, API Security (JWT, Sanctum, HMAC), Webhooks, Payment Gateways \\
     \textbf{Frontend}: React, Angular, Bootstrap, Tailwind CSS, Vite, Blade \\
     \textbf{Data \& ML}: Machine Learning, TensorFlow, Keras (LSTM), scikit-learn, Pandas, NumPy, NLP, OpenCV, Streamlit, Jupyter Notebook, Tableau, Excel \\
     \textbf{Deployment}: CI/CD Pipelines, Linux Server Setup, Production Deployment, SSH \\
-    \textbf{Practices \& Tools}: System Design Documentation, Workflow Automation, Git, GitHub, Postman, VS Code, LaTeX, Excalidraw \\
-    \textbf{Professional}: Technical Writing, Communication, Problem Solving, Leadership, Team Collaboration, Project Management, Mentoring
+    \textbf{Practices \& Tools}: System Design Docs, Workflow Automation, Git, GitHub, Postman, VS Code, LaTeX, Excalidraw \\
+    \textbf{Professional}: Technical Writing, Communication, Leadership, Teamwork, Project Management, Mentoring
   }}
 \end{itemize}
 
@@ -195,8 +194,8 @@ reporting, and CI/CD deployment on Linux servers. B.Tech in Artificial Intellige
 \section{Leadership \& Activities}
 \resumeSubHeadingListStart
   \small{\item{
-    Coordinated the Coding Club at TCEA (2024 -- 2026), organizing peer learning and open-source contributions across campus. \\
-    Guided students through training initiatives as Student Coordinator of the Training \& Placement Cell, TCEA (2023 -- 2026). \\
+    Coordinated the Coding Club at TCEA (2024 -- 2026), organizing peer learning and open-source contributions. \\
+    Student Coordinator, Training \& Placement Cell, TCEA (2023 -- 2026): guided students through training initiatives. \\
     Competed in the hackathon at Techno College of Engineering Agartala.
   }}
 \resumeSubHeadingListEnd

@@ -1,8 +1,3 @@
-%-------------------------------------------------------------
-% Tanmoy Biswas — Résumé (one page, single column, ATS-safe)
-% Compile with pdfLaTeX (Overleaf default). Output name should be
-% Tanmoy-Biswas-Resume.pdf so the portfolio's résumé buttons find it.
-%-------------------------------------------------------------
 \documentclass[a4paper,11pt]{article}
 
 \usepackage[empty]{fullpage}
@@ -16,7 +11,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \input{glyphtounicode}
-\pdfgentounicode=1   % keeps the PDF text machine-readable for ATS
+\pdfgentounicode=1
 
 \hypersetup{pdftitle={Tanmoy Biswas - Resume}, pdfauthor={Tanmoy Biswas},
   pdfsubject={Associate Software Development Engineer - Laravel, PHP, Python}}
@@ -37,8 +32,6 @@
 \raggedright
 \setlength{\tabcolsep}{0in}
 
-% Plain uppercase headings: small caps can come out of the PDF as odd glyphs for some parsers.
-% (\MakeUppercase goes in the last argument, where it receives only the title text.)
 \titleformat{\section}{\vspace{-5pt}\raggedright\large\bfseries}{}{0em}{\MakeUppercase}[\color{black}\titlerule\vspace{-5pt}]
 \titlespacing*{\section}{0pt}{10pt}{8pt}
 
@@ -61,19 +54,11 @@
 \newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.18in, itemsep=0pt, parsep=0pt, topsep=2pt]}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 
-% Your live portfolio address. CHECK THIS before compiling.
 \newcommand{\portfolio}{tanmoybiswas.vercel.app}
 
-%-------------------------------------------------------------
-% WRITING RULES used below (what the ATS checkers score):
-%  - every bullet starts with an action verb, max ~2 lines
-%  - only true numbers; "% TODO" comments mark where a real metric
-%    you know would raise the score (comments never print)
-%  - US spelling (most checkers flag "summarise", "organised")
-%-------------------------------------------------------------
 \begin{document}
 
-%---------- HEADING (plain text, one column: parsers read it in order) ----------
+% heading
 \begin{center}
   {\Huge\bfseries Tanmoy Biswas} \\[2pt]
   \small Associate Software Development Engineer \,|\, Agartala, Tripura, India \,|\, \href{https://\portfolio}{\portfolio} \\[2pt]
@@ -83,13 +68,13 @@
   \href{https://github.com/TanmoyBiswas478}{github.com/TanmoyBiswas478}
 \end{center}
 
-%---------- SUMMARY ----------
+% summary
 \section{Summary}
 \small{Software engineer building and maintaining 4 production Laravel systems for a state government department, a
 lending business and internal teams. Experienced in REST API design, API security, workflow automation, payment and bank integrations, MIS
 reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligence \& Data Science (CGPA 8.02) with hands-on machine learning in Python.}
 
-%---------- EXPERIENCE ----------
+% experience
 \section{Work Experience}
 \resumeSubHeadingListStart
 
@@ -99,21 +84,17 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
     \resumeItemListStart
       \resumeItem{Engineered a 10-stage case workflow across 11 administrative roles in a \textbf{state government
         land-use case portal} that I built and run in production (Laravel 12, PHP 8, MySQL, JWT).}
-      % TODO (if known): add volume, e.g. "processing N applications a month" or "used by N officials".
       \resumeItem{Integrated 6 external systems: Land Records API (HMAC-SHA256 signed), e-GRAS payments with NEFT,
         NGDRS property valuation, e-Jami mutation, SWAAGAT single sign-on and an SMS gateway.}
       \resumeItem{Developed the diversion fee calculator, MIS and case-monitoring dashboards, a support ticket desk with
         exports, and an admin impersonation module for support staff.}
       \resumeItem{Automated repayment reconciliation in a \textbf{loan lifecycle platform} (5 loan stages, from
         disbursement to settlement) by integrating bank eCMS webhooks (Laravel 11), eliminating manual entry.}
-      % TODO (if known): "for N loan accounts" / "saving N hours a week".
       \resumeItem{Built MIS and Trial Balance financial reports, including opening-balance calculations, for loan accounting.}
-      % TODO: only if true, add "and optimized the SQL queries behind them" -> covers the "Database Optimization" keyword.
       \resumeItem{Designed REST APIs for 4 Flutter mobile app modules (projects, tasks, leave, employee statistics) on a
         Laravel 10 HR and operations platform, and added 2 modules (Asset, Recruit).}
       \resumeItem{Strengthened API security by auditing the leave API and fixing the vulnerabilities found.}
       \resumeItem{Deployed both platforms and keep them running on a government Linux server: set up CI/CD pipelines, configured the server environment and handled production releases.}
-      % TODO: name the actual tools if known, e.g. "(GitHub Actions, Nginx, PHP-FPM, cron)" -> exact ATS keyword matches.
       \resumeItem{Authored system design documentation and architecture diagrams for the land-use case portal (LaTeX, Excalidraw).}
     \resumeItemListEnd
 
@@ -130,7 +111,7 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
 
 \resumeSubHeadingListEnd
 
-%---------- PROJECTS ----------
+% projects
 \section{Projects}
 \resumeSubHeadingListStart
   \resumeProjectHeading
@@ -138,13 +119,11 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
     \resumeItemListStart
       \resumeItem{Forecasted stock prices with LSTM time-series models and built a Streamlit dashboard for trends,
         predictions, alerts and metrics.}
-      % TODO (if known): add the model's error, e.g. "with N% MAPE on held-out data".
     \resumeItemListEnd
   \resumeProjectHeading
     {\textbf{Summarize.pro: AI Multi-Modal Book Summarizer} $|$ \emph{Python, NLP}}{Mar 2025 -- June 2026}
     \resumeItemListStart
       \resumeItem{Launched a free AI tool that summarizes books from text and other input formats into key insights.}
-      % TODO (if known): "used by N people".
     \resumeItemListEnd
   \resumeProjectHeading
     {\textbf{AI Resume Builder} $|$ \emph{Open source}}{Aug 2025 -- Nov 2025}
@@ -153,7 +132,7 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
     \resumeItemListEnd
 \resumeSubHeadingListEnd
 
-%---------- SKILLS ----------
+% skills
 \section{Skills}
 \begin{itemize}[leftmargin=0in, label={}]
   \small{\item{
@@ -167,7 +146,7 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
   }}
 \end{itemize}
 
-%---------- EDUCATION ----------
+% education
 \section{Education}
 \resumeSubHeadingListStart
   \resumeSubheading
@@ -178,7 +157,7 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
     {Higher Secondary, Science: 69.2\% \,|\, Madhyamik: 76\%}{}
 \resumeSubHeadingListEnd
 
-%---------- CERTIFICATIONS ----------
+% certifications
 \section{Certifications \& Training}
 \resumeSubHeadingListStart
   \small{\item{
@@ -190,7 +169,7 @@ reporting and CI/CD deployment on Linux servers. B.Tech in Artificial Intelligen
   }}
 \resumeSubHeadingListEnd
 
-%---------- LEADERSHIP ----------
+% leadership
 \section{Leadership \& Activities}
 \resumeSubHeadingListStart
   \small{\item{

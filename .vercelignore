@@ -4,7 +4,6 @@ resume/*.log
 resume/*.aux
 resume/*.out
 github-profile
-# Old site and leftovers: never deploy (the old folder holds credentials/recovery codes)
 OLD_TECHMEHFIL
 work.txt
 css/css-style copy.css

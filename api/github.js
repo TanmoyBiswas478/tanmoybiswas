@@ -1,13 +1,3 @@
-/*
- * GET /api/github: the last twelve months of GitHub contributions, as
- * { total, days: [{ date, count, level }] }, read from GitHub's GraphQL API.
- *
- * Needs a GITHUB_TOKEN environment variable on Vercel (a fine-grained token
- * with no extra permissions is enough; public data only). Without one it
- * answers 503 and js/github.js falls back to a public mirror.
- *
- * The username is fixed here, so this cannot be used as an open proxy.
- */
 const USER = process.env.GITHUB_USER || 'TanmoyBiswas478';
 
 const LEVELS = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
@@ -50,7 +40,6 @@ module.exports = async function handler(req, res) {
       level: LEVELS[day.contributionLevel] ?? 0,
     })));
 
-    // Cached at Vercel's edge for an hour; a stale copy is served while it refreshes.
     res.setHeader('cache-control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     res.status(200).json({ total: calendar.totalContributions, days });
   } catch (error) {

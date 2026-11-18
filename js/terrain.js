@@ -1,13 +1,3 @@
-/*
- * Hero terrain: a field of ridgelines rendered with Three.js.
- *
- * Each ridgeline is a row of points across a flat plane. The vertex shader
- * lifts every point by 3D simplex noise (x, z and time), so the field rolls
- * slowly with no per-frame work on the CPU. Where the pointer meets the
- * plane, a smooth hill rises and its peak glows white.
- *
- * script.js loads this module on demand, after the page is interactive.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   LineSegments, ShaderMaterial, Color, Vector2, Vector3, Plane, Raycaster, Group,
@@ -20,10 +10,6 @@ const WIDTH = 28;       // plane width, in world units
 const NEAR_Z = 5;       // first ridgeline (closest to the camera)
 const FAR_Z = -24;      // last ridgeline
 
-/*
- * 3D simplex noise, from "webgl-noise" by Ian McEwan and Stefan Gustavson
- * (MIT licence, https://github.com/stegu/webgl-noise). Returns -1..1.
- */
 export const SIMPLEX_NOISE = /* glsl */ `
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -103,7 +89,6 @@ const vertexShader = /* glsl */ `
   void main() {
     vec3 p = position;
 
-    // Two octaves: broad rolling hills plus finer ripples.
     float terrain = snoise(vec3(p.x * 0.15, p.z * 0.15, uTime * 0.05))
                   + snoise(vec3(p.x * 0.42, p.z * 0.42, uTime * 0.09)) * 0.24;
 
@@ -129,14 +114,12 @@ const fragmentShader = /* glsl */ `
   varying float vHill;
 
   void main() {
-    // Ridgelines fade into the distance, and the pointer's hill warms to white.
     float fade = 1.0 - smoothstep(uFadeNear, uFadeFar, vDepth);
     vec3 colour = mix(uColor, uPeak, smoothstep(0.7, 2.2, vHill));
     gl_FragColor = vec4(colour, fade * 0.8);
   }
 `;
 
-/** Rows of short segments across the plane, all at height 0 (the shader lifts them). */
 function buildRidgelines() {
   const segments = ROWS * (POINTS - 1);
   const positions = new Float32Array(segments * 2 * 3);
@@ -157,16 +140,6 @@ function buildRidgelines() {
   return geometry;
 }
 
-/**
- * Start the terrain on `canvas`. Returns false when WebGL is unavailable, in
- * which case the card keeps its plain gradient background.
- *
- * Options:
- *  - gsap:   used for the entrance and for easing pointer movement (optional)
- *  - still:  render a single frame and never animate (reduced motion)
- *  - scroll: object whose `progress` (0..1) script.js updates as the hero
- *            scrolls away; the camera flies forward into the terrain with it
- */
 export async function mountTerrain(canvas, { gsap, still = false, scroll = { progress: 0 } } = {}) {
   let renderer;
   try {
@@ -195,8 +168,6 @@ export async function mountTerrain(canvas, { gsap, still = false, scroll = { pro
     new ShaderMaterial({ uniforms, vertexShader, fragmentShader, transparent: true, depthWrite: false }),
   ));
 
-  // The camera rides on a rig. The rig carries the scroll dive; the camera's
-  // own position carries the entrance and the pointer sway, so they never fight.
   const camera = new PerspectiveCamera(42, 1, 0.1, 80);
   const rig = new Group();
   rig.add(camera);
@@ -224,22 +195,14 @@ export async function mountTerrain(canvas, { gsap, still = false, scroll = { pro
   }
   new ResizeObserver(resize).observe(canvas);
   resize();
-  // Compile shaders off the main thread (KHR_parallel_shader_compile)
-  // instead of freezing the page for the first frame.
   await renderer.compileAsync(scene, camera).catch(() => {});
 
-  // Draw once, then reveal the canvas (it fades in from CSS).
   render();
   canvas.classList.add('is-live');
   if (still) return true;
 
-  /* -- Animation loop, paused while off screen or in a background tab -- */
-
   let onScreen = true;
-  // Draw on GSAP's ticker: GSAP first updates its tweens (pointer, camera),
-  // then this draws in the same frame. A separate requestAnimationFrame loop
-  // could draw before those updates and show the pointer a frame late.
-  let steer = null; // set below: moves the hill toward mouse, finger or tilt
+  let steer = null; // assigned below
   let lastFrame = 0;
   const tick = (time) => {
     if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene
@@ -268,12 +231,8 @@ export async function mountTerrain(canvas, { gsap, still = false, scroll = { pro
 
   if (!gsap) return true;
 
-  /* -- Entrance: the camera settles from above while the terrain rises out of a flat plane -- */
-
   gsap.to(uniforms.uRise, { value: 1, duration: 2.4, ease: 'expo.out', delay: 0.3 });
   gsap.from(camera.position, { y: 8, z: 13, duration: 2.6, ease: 'expo.out', delay: 0.1 });
-
-  /* -- Pointer: the hill follows it across the plane; the camera sways a little -- */
 
   const card = canvas.parentElement;
   const raycaster = new Raycaster();
@@ -281,21 +240,17 @@ export async function mountTerrain(canvas, { gsap, still = false, scroll = { pro
   const hit = new Vector3();
   const ndc = new Vector2();
 
-  // Short glide: the glowing peak stays under the pointer instead of trailing it.
   const glide = { duration: 0.12, ease: 'power2.out' };
   const pointerX = gsap.quickTo(uniforms.uPointer.value, 'x', glide);
   const pointerZ = gsap.quickTo(uniforms.uPointer.value, 'y', glide);
   const hillTo = gsap.quickTo(uniforms.uHill, 'value', { duration: 0.8, ease: 'power2.out' });
   const swayX = gsap.quickTo(camera.position, 'x', { duration: 1.2, ease: 'power3.out' });
 
-  // The canvas box, measured at most once per scroll or resize (not per frame).
   let rect = null;
   const forget = () => { rect = null; };
   window.addEventListener('scroll', forget, { passive: true });
   window.addEventListener('resize', forget);
 
-  // Mouse or finger: the hill sits right under it. Phone tilt, or the slow
-  // automatic sway on touch screens: the hill wanders across the terrain.
   const read = createLean(card);
   steer = (time) => {
     const lean = read(time);

@@ -1,0 +1,14 @@
+# local only
+OLD_TECHMEHFIL/
+work.txt
+*copy.*
+js/script3.js
+js/2.0.12-typed.min.js
+js/2.3.4-owl.carousel.min.js
+js/4.0.1-jquery.waypoints.min.js
+js/a076d05399.js
+js/jquery-3.6.0.min.js
+js/vendor/lenis.min.js
+resume/*.log
+resume/*.aux
+resume/*.out

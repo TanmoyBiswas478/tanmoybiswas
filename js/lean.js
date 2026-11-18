@@ -1,21 +1,6 @@
-/*
- * Where a 3D scene should lean, from whatever input the device has:
- *
- *  1. Mouse over the scene's section (desktop), or a finger touching or
- *     dragging across it (phones; page scrolling is never blocked).
- *  2. Tilting the phone (gyroscope). Android allows this straight away;
- *     iOS asks for permission once, the first time a scene is touched.
- *  3. On touch devices with neither, a slow automatic sway, so the scenes
- *     never sit frozen on a phone.
- *
- * createLean(area) returns read(timeSeconds) -> { x, y, clientX, clientY, source },
- * where x and y run -1..1 (left/top to right/bottom). Scenes call it every frame.
- */
-
 const clamp = (value) => Math.max(-1, Math.min(1, value));
 const touchFirst = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-// One gyroscope listener, shared by every scene.
 let tilt = null;
 let tiltListening = false;
 function listenForTilt() {
@@ -23,7 +8,6 @@ function listenForTilt() {
   tiltListening = true;
   window.addEventListener('deviceorientation', (event) => {
     if (event.gamma == null || event.beta == null) return;
-    // gamma: left/right roll. beta: front/back, about 45° when a phone is held to read.
     tilt = { x: clamp(event.gamma / 30), y: clamp((event.beta - 45) / 30) };
   }, { passive: true });
 }
@@ -33,7 +17,6 @@ if (touchFirst && 'DeviceOrientationEvent' in window && !askPermission) listenFo
 
 let asked = false;
 function askForTilt() {
-  // iOS only shows its motion permission prompt in answer to a tap.
   if (!askPermission || asked) return;
   asked = true;
   window.DeviceOrientationEvent.requestPermission()
@@ -59,8 +42,6 @@ export function createLean(area) {
     if (event.pointerType === 'mouse') release();
   });
 
-  // Touch events keep arriving while the page scrolls (pointer events stop), and
-  // passive listeners never delay or block that scroll.
   const onTouch = (event) => {
     const touch = event.touches[0];
     if (touch) set(touch.clientX, touch.clientY);

@@ -1,12 +1,3 @@
-/*
- * Small decorative Three.js scenes, one per section heading (and the footer).
- * Every scene is a particle field drawn by one shared shader; each kind only
- * supplies its starting positions and a GLSL `move()` that animates a point.
- * Violet blends into coral across each shape (the site's two accents).
- *
- * Each scene animates only while on screen, leans toward the pointer and
- * scales in the first time it is seen. script.js loads this module on demand.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points,
   LineSegments, LineBasicMaterial, ShaderMaterial, Color, Group, AdditiveBlending, NormalBlending,
@@ -16,9 +7,6 @@ import { createLean } from './lean.js';
 const TAU = Math.PI * 2;
 const rand = (min, max) => min + Math.random() * (max - min);
 
-/* -- Shapes: each returns { positions, mix } (mix 0..1 = violet..coral) -- */
-
-/** Systems network: nodes on a sphere, the nearest ones wired together. */
 function network() {
   const count = 140;
   const positions = new Float32Array(count * 3);
@@ -31,7 +19,6 @@ function network() {
     positions.set([Math.cos(a) * r * s, y * s, Math.sin(a) * r * s], i * 3);
     mix[i] = (y + 1) / 2;
   }
-  // Wire each node to its two nearest neighbours.
   const lines = [];
   for (let i = 0; i < count; i++) {
     const near = [];
@@ -50,7 +37,6 @@ function network() {
   return { positions, mix, lines: new Float32Array(lines), size: 70 };
 }
 
-/** Wave grid: a tilted plane of points rolling like water. */
 function waves() {
   const side = 64;
   const positions = new Float32Array(side * side * 3);
@@ -65,7 +51,6 @@ function waves() {
   return { positions, mix, size: 26 };
 }
 
-/** Torus knot: points flowing along a (2,3) knot. */
 function knot() {
   const count = 4200;
   const positions = new Float32Array(count * 3);
@@ -84,7 +69,6 @@ function knot() {
   return { positions, mix, size: 22 };
 }
 
-/** Timeline tunnel: rings of points that travel toward the viewer. */
 function tunnel() {
   const rings = 26;
   const perRing = 90;
@@ -101,7 +85,6 @@ function tunnel() {
   return { positions, mix, size: 26 };
 }
 
-/** Spiral galaxy: three arms around a bright core. */
 function galaxy() {
   const count = 9000;
   const positions = new Float32Array(count * 3);
@@ -120,8 +103,6 @@ function galaxy() {
   }
   return { positions, mix, size: 18 };
 }
-
-/* -- Per-kind motion (GLSL) and framing -- */
 
 const KINDS = {
   network: {
@@ -194,12 +175,6 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-/*
- * One WebGL renderer, off screen, shared by every scene. Each scene draws into
- * it and copies the frame onto its own (2D) canvas. A WebGL context per
- * canvas cost a ~100 ms freeze each as it was created mid-scroll, plus a
- * shader compile apiece; this way there is one context and one compile.
- */
 const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
 let shared = null;
 function sharedRenderer() {
@@ -207,7 +182,6 @@ function sharedRenderer() {
     try {
       shared = new WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
       shared.setPixelRatio(1);   // sizes below are already in device pixels
-      // No synchronous shader-status queries: they froze the page while the GPU compiled.
       shared.debug.checkShaderErrors = false;
     } catch {
       shared = false;
@@ -243,7 +217,6 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
   const material = new ShaderMaterial({
     uniforms, vertexShader: vertexShader(spec.move), fragmentShader,
     transparent: true, depthWrite: false,
-    // Glow only adds light on dark backgrounds; on paper it would vanish.
     blending: spec.additive ? AdditiveBlending : NormalBlending,
   });
 
@@ -262,30 +235,19 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
   const camera = new PerspectiveCamera(45, 1, 0.1, 60);
   camera.position.set(0, 0, spec.camera);
 
-  // Motion = a steady drift from the clock + the scroll position. `progress`
-  // (0..1) is where the section is on its way through the screen: scrolling
-  // down pushes the scene forward, scrolling back pulls it back, while it
-  // keeps drifting smoothly on its own.
   const SPAN = 14;                    // seconds of motion added across one scroll pass
   let clock = 0;                      // GSAP ticker time, in seconds
   const scrollState = { target: 0.5, current: 0.5 };
 
   function render() {
     const p = scrollState.current;
-    // Steady motion from the clock, plus the scroll position on top: the
-    // scene always drifts smoothly, and scrolling pushes it forward or back.
     const t = clock * 0.6 + p * SPAN;
     uniforms.uTime.value = t;
     if (kind !== 'tunnel' && kind !== 'waves') group.rotation.y = spec.tilt[1] + t * 0.18;
-    // Grows in over the first third of the pass, and back out in reverse.
     const grow = 0.3 + 0.7 * Math.min(1, Math.max(0, (p - 0.05) / 0.3));
     group.scale.setScalar(still ? 1 : 1 - (1 - grow) ** 3);
     const { width, height } = canvas;
     if (!width || !height) return;
-    // The shared buffer only ever grows. Resizing it to each scene in turn
-    // (two scenes on screen at once) reallocated it every frame, which stalled
-    // the GPU for up to half a second. Each scene draws into the bottom-left
-    // corner instead, clipped by the scissor so clearing costs only that area.
     const size = renderer.domElement;
     if (size.width < width || size.height < height) {
       renderer.setSize(Math.max(size.width, width), Math.max(size.height, height), false);
@@ -294,8 +256,6 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
     renderer.setScissor(0, 0, width, height);
     renderer.setScissorTest(true);
     renderer.render(scene, camera);
-    // Copy now, in the same task: the WebGL frame is cleared once it ends.
-    // WebGL's origin is bottom-left, so that corner is the bottom rows here.
     context.clearRect(0, 0, width, height);
     context.drawImage(size, 0, size.height - height, width, height, 0, 0, width, height);
   }
@@ -311,8 +271,6 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
   }
   new ResizeObserver(resize).observe(canvas);
   resize();
-  // Compile shaders off the main thread (KHR_parallel_shader_compile)
-  // instead of freezing the page for the first frame.
   await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
@@ -325,13 +283,10 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
     onRefresh: (self) => { scrollState.target = self.progress; scrollState.current = self.progress; },
   });
 
-  // Lean toward the mouse, a finger, or the phone's tilt (see lean.js).
   const read = createLean(area);
   const leanX = gsap.quickTo(group.rotation, 'x', { duration: 1, ease: 'power3.out' });
   const leanZ = gsap.quickTo(group.rotation, 'z', { duration: 1, ease: 'power3.out' });
 
-  // Loop on GSAP's ticker, only while on screen and the tab is visible. Each
-  // frame eases the scene's progress toward the scroll position.
   let lastFrame = 0;
   const tick = (time) => {
     if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene

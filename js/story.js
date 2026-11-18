@@ -1,15 +1,3 @@
-/*
- * Story scene: a cloud of particles that morphs between three shapes as the
- * pinned "story" section scrolls: a sphere (workflows), a double helix
- * (integrations) and a rolling wave field (machine learning).
- *
- * All three shapes live on the GPU as vertex attributes. script.js scrubs a
- * single number, state.morph (0 → 1 → 2), and the vertex shader blends
- * between the shapes, scattering the particles outward mid-transition and
- * letting them settle again.
- *
- * script.js loads this module when the section comes near the viewport.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   Points, ShaderMaterial, AdditiveBlending, Color, Group,
@@ -18,7 +6,6 @@ import { createLean } from './lean.js';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
-/** Evenly spread points over a sphere (Fibonacci lattice), with a little depth jitter. */
 function sphereShape(count) {
   const out = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
@@ -31,7 +18,6 @@ function sphereShape(count) {
   return out;
 }
 
-/** Two twisting strands, with every fifth particle on a rung between them. */
 function helixShape(count) {
   const out = new Float32Array(count * 3);
   const turns = 3.2;
@@ -54,7 +40,6 @@ function helixShape(count) {
   return out;
 }
 
-/** A gently rolling field of particles on a grid. */
 function waveShape(count) {
   const out = new Float32Array(count * 3);
   const columns = Math.ceil(Math.sqrt(count * 1.7));
@@ -88,11 +73,9 @@ const vertexShader = /* glsl */ `
     float toWave = smoothstep(0.0, 1.0, clamp(uMorph - 1.0, 0.0, 1.0));
     vec3 p = mix(mix(position, aHelix, toHelix), aWave, toWave);
 
-    // Mid-transition the particles burst outward, each by its own amount, then settle.
     float flight = sin(toHelix * 3.14159) + sin(toWave * 3.14159);
     p += normalize(p + vec3(0.0001)) * flight * (0.5 + aSeed * 1.6);
 
-    // A slow shimmer so the shape never looks frozen.
     p.y += sin(uTime * 0.9 + aSeed * 6.2831) * 0.035;
 
     vec4 viewPosition = modelViewMatrix * vec4(p, 1.0);
@@ -112,7 +95,6 @@ const fragmentShader = /* glsl */ `
   varying float vFlight;
 
   void main() {
-    // Soft round dots; a few particles are white sparks among the lime.
     float distanceFromCentre = length(gl_PointCoord - 0.5);
     if (distanceFromCentre > 0.5) discard;
     float alpha = smoothstep(0.5, 0.05, distanceFromCentre);
@@ -121,14 +103,6 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-/**
- * Start the scene on `canvas`. Returns false when WebGL is unavailable.
- *
- * Options:
- *  - state: object whose `morph` (0..2) script.js scrubs with the scroll
- *  - gsap:  used for the entrance and for easing pointer movement (optional)
- *  - still: render a single frame and never animate (reduced motion)
- */
 export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = false } = {}) {
   let renderer;
   try {
@@ -167,7 +141,6 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     transparent: true, depthWrite: false, blending: AdditiveBlending,
   }));
 
-  // The group carries the layout offset and the pointer tilt; the points spin inside it.
   const group = new Group();
   group.add(points);
   const scene = new Scene();
@@ -179,8 +152,6 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     if (!width || !height) return;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    // Wide screens: the shape sits to the right of the text. Narrow screens:
-    // smaller, and lifted into the space above the captions.
     const narrow = camera.aspect < 0.9;
     group.position.set(narrow ? 0 : 2.2, narrow ? 2.3 : 0, 0);
     group.scale.setScalar(narrow ? 0.68 : 1);
@@ -200,19 +171,13 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
 
   new ResizeObserver(resize).observe(canvas);
   resize();
-  // Compile shaders off the main thread (KHR_parallel_shader_compile)
-  // instead of freezing the page for the first frame.
   await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
   if (still) return true;
 
-  // Animation loop, paused while off screen or in a background tab.
   let onScreen = true;
-  // Drawn on GSAP's ticker (when present), in the same frame callback as the
-  // scroll and the scrubbed morph, instead of a second requestAnimationFrame
-  // loop that could draw before they update.
-  let steer = null; // set below: leans the shape toward mouse, finger or tilt
+  let steer = null; // assigned below
   const tick = (time) => {
     steer?.(time);
     render(time * 1000);
@@ -229,8 +194,6 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     if (on) gsap.ticker.add(tick);
     else gsap.ticker.remove(tick);
   };
-  // The scene is usually set up before the visitor reaches it, so the
-  // entrance (particles bloom from nothing) waits until it is first in view.
   let entered = false;
   new IntersectionObserver(([entry]) => {
     onScreen = entry.isIntersecting;
@@ -245,7 +208,6 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
 
   if (!gsap) return true;
 
-  // The whole shape leans toward the mouse, a finger, or the phone's tilt (see lean.js).
   const tiltX = gsap.quickTo(group.rotation, 'x', { duration: 1, ease: 'power3.out' });
   const tiltY = gsap.quickTo(group.rotation, 'y', { duration: 1, ease: 'power3.out' });
   const read = createLean(canvas.closest('[data-story]') ?? canvas);

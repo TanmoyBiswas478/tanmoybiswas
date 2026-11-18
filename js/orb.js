@@ -1,10 +1,3 @@
-/*
- * Contact orb: a sphere of particles that breathes with 3D noise, wrapped by
- * a tilted orbit ring. Violet at rest, coral where the surface swells.
- * Leans toward the pointer; animates only while on screen.
- *
- * script.js loads this module on demand, in idle time.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   Points, ShaderMaterial, Color, Group, IcosahedronGeometry, AdditiveBlending,
@@ -26,12 +19,10 @@ const vertexShader = /* glsl */ `
     vec3 p = position;
     float heat = 0.0;
     if (uRing < 0.5) {
-      // Swell the sphere outward along its normal by slow 3D noise.
       float n = snoise(p * 0.9 + vec3(0.0, uTime * 0.25, uTime * 0.15));
       heat = smoothstep(0.1, 0.9, n);
       p += normalize(p) * n * 0.32;
     } else {
-      // Ring particles drift along the orbit at their own speed.
       float a = atan(p.z, p.x) + uTime * (0.08 + aSeed * 0.06);
       float r = length(p.xz);
       p = vec3(cos(a) * r, p.y + sin(uTime + aSeed * 6.28) * 0.04, sin(a) * r);
@@ -98,8 +89,6 @@ export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = 
     vertexShader, fragmentShader, transparent: true, depthWrite: false, blending: AdditiveBlending,
   });
 
-  // Sphere: the vertices of a finely divided icosahedron, de-duplicated by
-  // dropping the index (non-indexed geometry repeats shared corners; harmless for points).
   const sphere = new IcosahedronGeometry(1.5, 28);
   sphere.deleteAttribute('normal');
   sphere.deleteAttribute('uv');
@@ -131,15 +120,12 @@ export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = 
     if (still) render();
   }
 
-  // Motion = a steady drift from the clock + the scroll position: scrolling down pushes the orb forward,
-  // scrolling back reverses it, in step with the page.
   const SPAN = 16;                    // seconds of motion added across one scroll pass
   let clock = 0;                      // GSAP ticker time, in seconds
   const scrollState = { target: 0.5, current: 0.5 };
 
   function render() {
     const p = scrollState.current;
-    // Steady motion from the clock, plus the scroll position on top.
     const t = clock * 0.6 + p * SPAN;
     sphereMaterial.uniforms.uTime.value = t;
     ringMaterial.uniforms.uTime.value = t;
@@ -151,8 +137,6 @@ export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = 
 
   new ResizeObserver(resize).observe(canvas);
   resize();
-  // Compile shaders off the main thread (KHR_parallel_shader_compile)
-  // instead of freezing the page for the first frame.
   await renderer.compileAsync(scene, camera).catch(() => {});
   render();
   canvas.classList.add('is-live');
@@ -164,13 +148,10 @@ export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = 
     onRefresh: (self) => { scrollState.target = self.progress; scrollState.current = self.progress; },
   });
 
-  // The orb leans toward the mouse, a finger, or the phone's tilt (see lean.js).
   const read = createLean(canvas.parentElement);
   const tiltX = gsap.quickTo(group.rotation, 'x', { duration: 1, ease: 'power3.out' });
   const tiltZ = gsap.quickTo(group.rotation, 'z', { duration: 1, ease: 'power3.out' });
 
-  // Loop on GSAP's ticker, paused while off screen or in a background tab.
-  // Each frame eases the orb's progress toward the scroll position.
   let lastFrame = 0;
   const tick = (time) => {
     if (time - lastFrame < 1 / 32) return;   // ~30 fps is plenty for a decorative scene

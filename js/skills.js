@@ -1,18 +1,3 @@
-/*
- * Skill globe for the "Tools I use" card (Three.js).
- *
- * Every tool in the card's list becomes a glowing node on a slowly turning
- * globe. Tools in the same group sit together as a constellation, wired to
- * their nearest neighbours, and each group has its own colour from the site's
- * violet-to-coral range. The list and the globe answer each other: point at a
- * group or a tool and the globe turns it to the front and lights it up; point
- * at a node and its chip lights up in the list. Drag (or swipe) to spin it.
- *
- * Cheap by design: about 1,500 points and 80 lines, two small shaders compiled
- * off the main thread, one WebGL context of its own, and the loop runs only
- * while the card is on screen. Labels are plain HTML, so the text stays sharp.
- * script.js loads this module when the card comes near.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points, LineSegments,
   ShaderMaterial, Group, Vector3, Color, AdditiveBlending,
@@ -20,10 +5,8 @@ import {
 
 const TAU = Math.PI * 2;
 const R = 1.6;                                   // globe radius
-// One colour per group, spread across the site's violet → coral gradient.
 const PALETTE = ['#8b7bff', '#a873f2', '#c76bd9', '#e56bb8', '#ff6b8b', '#ff8a70'];
 
-/** Evenly spread directions on a unit sphere (Fibonacci lattice). */
 function fibonacci(count, index) {
   const y = count === 1 ? 0 : 1 - (index / (count - 1)) * 2;
   const r = Math.sqrt(1 - y * y);
@@ -110,7 +93,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   renderer.setPixelRatio(pixelRatio);
 
-  /* -- Data: read the groups and tools straight from the card's list -- */
   const groups = groupEls.map((el, g) => ({
     el, color: PALETTE[g % PALETTE.length],
     name: el.querySelector('dt')?.textContent.trim() ?? '',
@@ -119,9 +101,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   const skills = [];
   groups.forEach((group, g) => {
     group.el.style.setProperty('--g', group.color);
-    // Each group clusters around its own spot on the globe, in a small spiral.
-    // Clusters ring the globe, alternating a little above and below the
-    // equator, so every group can be turned to face the viewer.
     const around = (g / groups.length) * TAU, lat = g % 2 ? 0.38 : -0.3;
     const centre = new Vector3(Math.cos(lat) * Math.sin(around), Math.sin(lat), Math.cos(lat) * Math.cos(around));
     const helper = Math.abs(centre.y) > 0.9 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
@@ -143,7 +122,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
     });
   });
 
-  /* -- Points: surface dust + one node per tool, in one geometry -- */
   const DUST = 1400;
   const total = DUST + skills.length;
   const positions = new Float32Array(total * 3);
@@ -183,8 +161,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
     transparent: true, depthWrite: false, blending: AdditiveBlending,
   });
 
-  /* -- Lines: each tool wired to its two nearest neighbours in its group,
-        drawn as arcs that hug the globe -- */
   const line = [], lineColor = [], lineGroup = [];
   const seen = new Set();
   const arc = (a, b, g) => {
@@ -210,7 +186,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
       arc(skill.pos, mate.pos, skill.group);
     }
   }
-  // A faint latitude / longitude grid so the shape reads as a globe.
   const gridTint = new Color(PALETTE[0]);
   const ring = (fn) => {
     const steps = 72;
@@ -245,7 +220,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   const camera = new PerspectiveCamera(40, 1, 0.1, 50);
   camera.position.set(0, 0, 5.6);
 
-  /* -- HTML labels, one per tool, placed over its node every frame -- */
   const labels = skills.map((skill) => {
     const el = document.createElement('span');
     el.className = 'skills__label';
@@ -256,14 +230,12 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
     return { el, shown: -1, live: false };
   });
 
-  /* -- Rotation state: yaw/pitch with drag inertia and an eased target -- */
   const view = { yaw: 0.4, pitch: 0.18, spin: 0, target: null };
   let width = 0, height = 0;
   let active = -1, hover = -1;
   const world = new Vector3();
 
   function aimAt(point) {
-    // Angles that bring `point` to the front (facing the camera).
     let yaw = Math.atan2(-point.x, point.z);
     const flat = Math.hypot(point.x, point.z);
     const pitch = Math.atan2(point.y, flat);
@@ -282,14 +254,12 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
       const s = skills[k];
       const lit = k === hover;
       const inGroup = active === -1 || s.group === active;
-      // Only labels on the front face show; a highlighted group shows further round.
       const edge = active !== -1 && inGroup ? 0.35 : 0.62;
       let opacity = Math.max(0, Math.min(1, (front - edge) / 0.18));
       if (!inGroup) opacity *= 0.25;
       if (lit) opacity = 1;
       const label = labels[k];
       const shown = Math.round(opacity * 40) / 40;
-      // Hidden labels (the back of the globe) are not moved: no style work for them.
       if (shown === 0 && label.shown === 0) continue;
       label.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -150%) scale(${(0.82 + front * 0.22).toFixed(3)})`;
       if (shown !== label.shown) {
@@ -317,7 +287,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   }
   new ResizeObserver(resize).observe(stage);
 
-  /* -- Highlighting: list ⇄ globe -- */
   function highlight(group, skill = -1) {
     active = group; hover = skill;
     uniforms.uActive.value = group; uniforms.uHover.value = skill;
@@ -342,7 +311,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
     group.el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { hold(); highlight(g); } });
     group.el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') clearSoon(); });
     group.el.addEventListener('click', (e) => {
-      // Touch: tap a group (or tool) to show it; tap it again to let go.
       const chip = e.target.closest('dd');
       const k = chip ? Number(chip.dataset.skill) : -1;
       if (k !== -1 ? hover === k : active === g && hover === -1) highlight(-1);
@@ -362,7 +330,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   });
   layer.addEventListener('pointerout', (e) => { if (e.target.closest('.skills__label')) clearSoon(); });
 
-  /* -- Drag to spin, with inertia -- */
   let drag = null;
   stage.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.skills__label')) return;
@@ -388,7 +355,6 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
 
-  /* -- Loop: only while the card is on screen and the tab is visible -- */
   const AUTO = still ? 0 : 0.16;          // radians per second of idle drift
   let last = 0, clock = 0, running = false, onScreen = false;
   function frame(now) {

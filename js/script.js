@@ -1,27 +1,7 @@
-/*
- * Tanmoy Biswas — portfolio
- *
- * Plain JavaScript, with GSAP + ScrollTrigger (self-hosted in js/vendor) for
- * motion. No build step.
- *
- * The page is complete without this file. Each init* function finds its own
- * markup, adds one enhancement, and returns early when that markup, a browser
- * feature, or GSAP is missing. Content is never hidden by CSS waiting on this
- * file, except the hero intro, which has a CSS failsafe (see [data-intro]).
- *
- * Performance rules followed throughout:
- *  - Pointer-driven motion uses gsap.quickTo: one reusable tween per property,
- *    nothing allocated per pointer event.
- *  - Layout is read once and cached (on resize), never inside a frame loop.
- *  - Continuous loops (the ticker here, the WebGL terrain in terrain.js) stop
- *    when they are off screen or the tab is hidden.
- */
 (() => {
   'use strict';
 
-  /* ------------------------------------------------------------------ *
-   * Environment and helpers
-   * ------------------------------------------------------------------ */
+  // Environment and helpers
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -41,31 +21,15 @@
   const hasGsap = Boolean(gsap && ScrollTrigger);
   if (hasGsap) gsap.registerPlugin(ScrollTrigger);
 
-  /** True when GSAP is available and the visitor has not asked for less motion. */
   const animate = hasGsap && !reducedMotion.matches;
 
-  /** The smooth-scroll engine, once initSmoothScroll has started it. */
-  let lenis = null;
-
-  /** Values the Three.js modules read every frame; ScrollTriggers here write them. */
   const heroScroll = { progress: 0 };   // 0..1 as the hero scrolls away
   const storyState = { morph: 0 };      // 0..2 through the pinned story
 
-  /** Scroll to an element, leaving room for the fixed navigation bar. */
   function scrollToElement(el) {
-    if (lenis) {
-      lenis.scrollTo(el, { offset: -parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop || '0') });
-    } else {
-      el.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth' });
-    }
+    el.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth' });
   }
 
-  /**
-   * Resolves once the hero can be shown as designed: web fonts in and the
-   * portrait decoded (capped, so a slow network never holds the page).
-   * The intro waits on this with or without the preloader, so it never
-   * plays over an empty card or in a fallback font.
-   */
   const heroReady = (() => {
     const portrait = document.querySelector('.hero__portrait img');
     const loaded = !portrait || portrait.complete
@@ -81,27 +45,16 @@
     ]);
   })();
 
-  /**
-   * Resolves when the hero intro has finished. Heavy work (Three.js) waits
-   * on this: started earlier, its ~0.7s main-thread freeze landed in the
-   * middle of the intro, which then stalled and jumped.
-   */
   let introFinished;
   const introDone = new Promise((resolve) => { introFinished = resolve; });
 
-  /** Resolves once the hero terrain has been set up (or has failed or been skipped). */
   let terrainFinished;
   const terrainSettled = new Promise((resolve) => { terrainFinished = resolve; });
 
-  /** Run heavy, non-urgent work when the browser has a quiet moment. */
   const whenIdle = window.requestIdleCallback
     ? (callback) => window.requestIdleCallback(callback, { timeout: 600 })
     : (callback) => setTimeout(callback, 100);
 
-  /**
-   * A getter for an element's bounding box that measures at most once per
-   * scroll/resize, so pointer handlers never force a layout on every event.
-   */
   function cachedRect(el) {
     let rect = null;
     const reset = () => { rect = null; };
@@ -110,7 +63,6 @@
     return () => (rect ??= el.getBoundingClientRect());
   }
 
-  /** Run `callback` at most once per animation frame, however often it is requested. */
   function oncePerFrame(callback) {
     let queued = false;
     return (...args) => {
@@ -123,10 +75,6 @@
     };
   }
 
-  /**
-   * Recalculate ScrollTrigger positions after the page height changes
-   * (filters, accordion rows). Debounced so a burst of changes costs one refresh.
-   */
   const refreshScroll = (() => {
     let timer = 0;
     return () => {
@@ -136,7 +84,6 @@
     };
   })();
 
-  /** Read and write a single query-string value without adding history entries. */
   const query = {
     get: (key) => new URLSearchParams(location.search).get(key),
     set(key, value) {
@@ -148,7 +95,6 @@
     },
   };
 
-  /** Small status message at the bottom of the screen; also read out by screen readers. */
   const toast = (() => {
     let timer = 0;
     return (message) => {
@@ -161,10 +107,6 @@
     };
   })();
 
-  /**
-   * Wrap each word (by: 'word') or each character (by: 'char') of an element's
-   * text in a span, leaving nested tags such as <em> in place. Returns the spans.
-   */
   function splitText(root, by) {
     const spans = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -173,15 +115,12 @@
 
     for (const node of textNodes) {
       const parts = by === 'char' ? [...node.textContent] : node.textContent.split(/(\s+)/);
-      // In highlighted text (<em>) the space after each word goes inside the word,
-      // as a no-break space, so the highlight runs on without gaps; a <wbr> after
-      // it keeps the line-break opportunity the plain space provided.
       const highlighted = by === 'word' && node.parentElement.closest('em');
       const fragment = document.createDocumentFragment();
 
       parts.forEach((part, index) => {
         if (!part.trim()) {
-          if (part && !highlighted) fragment.append(part); // whitespace stays plain text so lines still wrap
+          if (part && !highlighted) fragment.append(part);
           return;
         }
         const span = document.createElement('span');
@@ -192,7 +131,6 @@
         } else {
           const followed = highlighted && parts.slice(index + 1).some((next) => next.trim());
           if (followed) span.textContent += ' ';
-          // Words get an outer clipping box and an inner span that slides up into it.
           const box = document.createElement('span');
           box.className = 'w';
           box.append(span);
@@ -206,21 +144,13 @@
     return spans;
   }
 
-  /* ------------------------------------------------------------------ *
-   * Hero intro
-   *
-   * The first name rises letter by letter, the lime slab wipes in behind
-   * the surname before its letters rise, and the portrait card opens from
-   * the bottom. Returns the letters (for the hover effect) and a play()
-   * function: the timeline waits for the preloader to leave.
-   * ------------------------------------------------------------------ */
+  // Hero intro
 
   function initIntro() {
     const hero = $('[data-hero]');
     const name = hero && $('[data-kinetic]', hero);
     if (!name) return { letters: [], play() {} };
 
-    // Screen readers get the name once, not letter by letter.
     name.setAttribute('aria-label', name.textContent.replace(/\s+/g, ' ').trim());
     const lines = $$('.line', name).map((line) => {
       line.setAttribute('aria-hidden', 'true');
@@ -246,9 +176,6 @@
     const portrait = $('.hero__portrait', hero);
     const fades = [$('.hero__meta', hero), $('.hero__foot', hero)].filter(Boolean);
 
-    // Inline opacity overrides the CSS that hid these pieces until now. The
-    // CSS failsafe animation is switched off too: an animation with fill-mode
-    // `forwards` outranks inline styles and would fight this timeline.
     gsap.set(parts, { opacity: 1, animation: 'none' });
 
     const intro = gsap.timeline({ paused: true, defaults: { ease: 'expo.out' }, onComplete: finish })
@@ -262,26 +189,20 @@
     return { letters: lines.flat(), play: () => intro.play() };
   }
 
-  /* ------------------------------------------------------------------ *
-   * Preloader: a lime panel counts to 100 while fonts and the portrait
-   * arrive, then wipes upward and hands over to the hero intro. It plays
-   * once per session and never holds the page for more than ~2 seconds.
-   * ------------------------------------------------------------------ */
+  // Preloader
 
   function initLoader(onDone) {
     const loader = $('[data-loader]');
     const skip = !loader || !animate || document.documentElement.classList.contains('no-loader');
     if (skip) {
       loader?.remove();
-      // No preloader to cover the wait, but still wait for the portrait.
       heroReady.then(onDone);
       return;
     }
-    try { sessionStorage.setItem('tb-visited', '1'); } catch { /* private mode: it just plays again */ }
+    try { sessionStorage.setItem('tb-visited', '1'); } catch { /* private mode */ }
 
     const root = document.documentElement;
     root.style.overflow = 'hidden';
-    lenis?.stop();
 
     const count = $('[data-loader-count]', loader);
     const counter = { value: 0 };
@@ -302,28 +223,13 @@
         onComplete: () => {
           loader.remove();
           root.style.overflow = '';
-          lenis?.start();
         },
       });
       gsap.delayedCall(0.35, onDone);
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Scrolling is the browser's own. Lenis (JS smooth scrolling) moved the
-   * page from the main thread every frame, so any busy moment there (a 3D
-   * scene, a reveal, an image) froze the page itself: the "stuck" feeling.
-   * Native scrolling runs on the compositor thread and keeps moving while
-   * scripts work; every ScrollTrigger effect still follows it. The lenis
-   * variable stays null, which the rest of this file already handles.
-   * ------------------------------------------------------------------ */
-
-  function initSmoothScroll() {}
-
-  /* ------------------------------------------------------------------ *
-   * Cursor follower: a small inverting dot that trails the pointer and
-   * grows into a labelled lime disc over anything marked [data-cursor-text].
-   * ------------------------------------------------------------------ */
+  // Cursor follower
 
   function initCursor() {
     const cursor = $('[data-cursor]');
@@ -334,7 +240,7 @@
     }
 
     const label = $('[data-cursor-label]', cursor);
-    // A short trail: the dot follows the pointer softly but keeps up with it.
+    document.documentElement.classList.add('has-custom-cursor');
     const toX = gsap.quickTo(cursor, 'x', { duration: 0.15, ease: 'power3.out' });
     const toY = gsap.quickTo(cursor, 'y', { duration: 0.15, ease: 'power3.out' });
     let visible = false;
@@ -342,7 +248,6 @@
     window.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse') return;
       if (!visible) {
-        // Appear under the pointer instead of gliding in from the corner.
         toX(event.clientX, event.clientX);
         toY(event.clientY, event.clientY);
         cursor.classList.add('is-visible');
@@ -358,18 +263,33 @@
       }
     }, { passive: true });
 
-    document.documentElement.addEventListener('pointerleave', () => {
+    const hideCursor = () => {
       cursor.classList.remove('is-visible');
       visible = false;
-    });
+    };
+    document.documentElement.addEventListener('pointerleave', hideCursor);
+
+    for (const frame of $$('iframe')) frame.addEventListener('pointerenter', hideCursor);
+
+    const dialogs = $$('dialog');
+    if (typeof cursor.showPopover === 'function') {
+      cursor.setAttribute('popover', 'manual');
+      const raise = () => {
+        try {
+          if (cursor.matches(':popover-open')) cursor.hidePopover();
+          cursor.showPopover();
+        } catch {}
+      };
+      raise();
+      new MutationObserver(raise).observe(document.body, { subtree: true, attributeFilter: ['open'] });
+    } else {
+      const sync = () => document.documentElement.classList
+        .toggle('cursor-under-dialog', dialogs.some((d) => d.open));
+      new MutationObserver(sync).observe(document.body, { subtree: true, attributeFilter: ['open'] });
+    }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Pinned story: the section holds still for a few screens while three
-   * captions take turns and the particle scene (js/story.js) morphs
-   * between shapes. The timeline here owns the timing; the scene only
-   * reads storyState.morph.
-   * ------------------------------------------------------------------ */
+  // Pinned story
 
   function initStory() {
     const section = $('[data-story]');
@@ -382,7 +302,6 @@
       section.classList.add('is-pinned');
       gsap.set(steps.slice(1), { autoAlpha: 0, y: 40 });
 
-      // Timeline units are arbitrary; the scrub maps all 3 of them onto the pinned distance.
       gsap.timeline({
         defaults: { ease: 'none' },
         scrollTrigger: {
@@ -403,10 +322,6 @@
         .to(steps[2], { autoAlpha: 1, y: 0, duration: 0.3 }, 2.2);
     }
 
-    // The 3D scene is set up ahead of time, in idle time once the hero
-    // terrain is running. Setting it up only when the section came near
-    // froze the page for a moment in the middle of the visitor's scroll.
-    // If they scroll there before that, it starts as the section nears.
     const canvas = $('[data-story-canvas]', section);
     if (!canvas || !scriptUrl) return;
     let started = false;
@@ -425,11 +340,6 @@
     terrainSettled.then(() => whenIdle(mount));
   }
 
-  /* ------------------------------------------------------------------ *
-   * Contact orb (Three.js, js/orb.js): set up in idle time after the hero
-   * terrain, or as the section nears if the visitor gets there first.
-   * ------------------------------------------------------------------ */
-
   function initOrb() {
     const canvas = $('[data-orb]');
     if (!canvas || !scriptUrl) return;
@@ -446,14 +356,8 @@
       if (entries[0].isIntersecting) mount();
     }, { rootMargin: '600px 0px' });
     nearby.observe(canvas);
-    // After the story scene's idle slot, so the two set-ups never share a frame.
     terrainSettled.then(() => setTimeout(() => whenIdle(mount), 1500));
   }
-
-  /* ------------------------------------------------------------------ *
-   * Skill globe (Three.js, js/skills.js) in the "Tools I use" card,
-   * loaded as the card comes near. Without WebGL the card stays a list.
-   * ------------------------------------------------------------------ */
 
   function initSkills() {
     const root = $('[data-skills]');
@@ -477,22 +381,9 @@
     terrainSettled.then(() => nearby.observe(root));
   }
 
-  /* ------------------------------------------------------------------ *
-   * GitHub contributions (Three.js, js/github.js): fetched and built as
-   * the section comes near, or in idle time after the contact orb.
-   * ------------------------------------------------------------------ */
-
-  /**
-   * Images marked loading="lazy" wait until they are nearly on screen, which
-   * on a busy page meant seconds of blank thumbnails. Once the page has
-   * loaded, fetch them all in the background (about 300 KB in total).
-   */
   function initImages() {
     const lazy = $$('img[loading="lazy"]');
     if (!lazy.length) return;
-    // Decoding a thumbnail cost 100-370 ms on the main thread the first time it
-    // scrolled into view (a visible hitch). decode() does that work off the
-    // main thread now, one image per idle moment, so scrolling never waits.
     const decodeNext = (queue) => {
       const img = queue.shift();
       if (!img) return;
@@ -528,15 +419,7 @@
     terrainSettled.then(() => setTimeout(() => whenIdle(mount), 3000));
   }
 
-  /* ------------------------------------------------------------------ *
-   * Section scenes (Three.js, js/scenes.js): one per section heading and
-   * the footer. Each is set up, one per idle moment, as it comes within
-   * ~900px of the screen, so no two set-ups share a frame mid-scroll.
-   * ------------------------------------------------------------------ */
-
   function initScenes() {
-    // On phones the small heading scenes sit faintly behind the text and are
-    // skipped to save battery; the footer galaxy behind the name always runs.
     const phone = window.matchMedia('(max-width: 760px)').matches;
     const canvases = $$('[data-scene]').filter((canvas) => !phone || canvas.dataset.scene === 'galaxy');
     if (!canvases.length || !scriptUrl) return;
@@ -555,21 +438,16 @@
           .catch((error) => console.warn('Scene unavailable:', error));
       }
     }, { rootMargin: '900px 0px' });
-    // Only after the hero terrain, which matters more, is running.
     terrainSettled.then(() => canvases.forEach((canvas) => nearby.observe(canvas)));
   }
 
-  /* ------------------------------------------------------------------ *
-   * Footer: the giant name rises letter by letter as the page ends.
-   * ------------------------------------------------------------------ */
+  // Footer
 
   function initFooterName() {
     const name = $('[data-footer-name]');
     if (!name) return;
     const letters = splitText(name, 'char');
 
-    // Shade the letters from violet to coral (the 3D scenes' colours). A
-    // clipped gradient cannot be used: the letters move on their own.
     const styles = getComputedStyle(document.documentElement);
     const hex = (name, fallback) => (styles.getPropertyValue(name).trim() || fallback).replace('#', '');
     const rgb = (value) => [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16));
@@ -589,9 +467,7 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Hero name: letters near the pointer lift, then settle back.
-   * ------------------------------------------------------------------ */
+  // Hero name
 
   function initLetterHover(letters) {
     const name = $('[data-kinetic]');
@@ -604,7 +480,6 @@
     let reach = 1;
     const nameRect = cachedRect(name);
 
-    // Letter centres relative to the heading box, measured with their lift removed.
     function measure() {
       const box = nameRect();
       const fontSize = parseFloat(getComputedStyle(name).fontSize);
@@ -637,11 +512,7 @@
     window.addEventListener('resize', () => { centres = []; });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Hero portrait: tilts toward the pointer. The halo behind it and the
-   * badge in front move by different amounts, which reads as depth.
-   * The whole stage also drifts up a little as the hero scrolls away.
-   * ------------------------------------------------------------------ */
+  // Hero portrait
 
   function initPortrait() {
     const hero = $('[data-hero]');
@@ -682,19 +553,12 @@
     hero.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse') return;
       const rect = heroRect();
-      // -1 at the left/top edge of the hero, +1 at the right/bottom.
       aim(((event.clientX - rect.left) / rect.width) * 2 - 1, ((event.clientY - rect.top) / rect.height) * 2 - 1);
     }, { passive: true });
     hero.addEventListener('pointerleave', () => aim(0, 0));
   }
 
-  /* ------------------------------------------------------------------ *
-   * Hero background: a 3D terrain of ridgelines (Three.js, js/terrain.js).
-   *
-   * Three.js is large, so it is fetched only now, after the page is already
-   * interactive. Until it arrives the card shows its gradient background;
-   * if WebGL is unavailable it simply stays that way.
-   * ------------------------------------------------------------------ */
+  // Hero background
 
   function initTerrain() {
     const canvas = $('[data-terrain]');
@@ -703,7 +567,6 @@
       return;
     }
 
-    // As the hero scrolls away, the terrain's camera flies forward into it.
     if (animate) {
       ScrollTrigger.create({
         trigger: '[data-hero]',
@@ -713,15 +576,10 @@
       });
     }
 
-    // Parsing Three.js and compiling its shader is the heaviest task on the
-    // page, so it waits until the browser is idle, after the hero intro,
-    // rather than competing with the intro for frames.
     const start = () => import(new URL('terrain.js', scriptUrl).href)
       .then(({ mountTerrain }) => mountTerrain(canvas, { gsap, still: !animate, scroll: heroScroll }))
       .catch((error) => console.warn('Hero terrain unavailable:', error));
 
-    // Download Three.js (~670 KB) while the preloader and intro play, once the
-    // portrait is in, so it is cached by the time it is needed...
     heroReady.then(() => {
       for (const file of ['terrain.js', 'vendor/three.module.min.js']) {
         const link = document.createElement('link');
@@ -731,20 +589,15 @@
       }
     });
 
-    // ...but only run it (a ~0.7s main-thread task) after the intro is over.
     const loaded = document.readyState === 'complete'
       ? Promise.resolve()
       : new Promise((resolve) => window.addEventListener('load', resolve, { once: true }));
-    // The timeout covers an intro that never finishes (e.g. a script error).
     Promise.race([introDone, new Promise((resolve) => setTimeout(resolve, 6000))])
       .then(() => loaded)
       .then(() => whenIdle(() => start().finally(terrainFinished)));
   }
 
-  /* ------------------------------------------------------------------ *
-   * Navigation: scrolled state, hide on scroll down, current section,
-   * smooth in-page links, and the full-screen menu on small screens.
-   * ------------------------------------------------------------------ */
+  // Navigation
 
   function initNav() {
     const nav = $('[data-nav]');
@@ -753,16 +606,12 @@
     const toggle = $('[data-nav-toggle]', nav);
     const label = $('.nav__toggle-label', nav);
     const links = $$('.nav__links a', nav);
-    // Read the position in the scroll event itself, before anything has written
-    // styles this frame; reading it later, inside the animation frame after
-    // GSAP's writes, forced an extra layout on every frame of scrolling.
     let currentY = window.scrollY;
     let lastY = currentY;
 
     const update = oncePerFrame(() => {
       const y = currentY;
       nav.classList.toggle('is-scrolled', y > 8);
-      // Ignore tiny movements so the bar does not flicker on trackpads.
       if (Math.abs(y - lastY) > 6) {
         nav.classList.toggle('is-hidden', y > lastY && y > 480 && !nav.classList.contains('is-open'));
         lastY = y;
@@ -777,8 +626,6 @@
       toggle?.setAttribute('aria-expanded', String(open));
       if (label) label.textContent = open ? 'Close' : 'Menu';
       document.documentElement.style.overflow = open ? 'hidden' : '';
-      if (open) lenis?.stop();
-      else lenis?.start();
     }
 
     toggle?.addEventListener('click', () => setMenu(!nav.classList.contains('is-open')));
@@ -788,13 +635,10 @@
         toggle?.focus();
       }
     });
-    // If the window grows past the phone layout while the sheet is open, close it.
     window.matchMedia('(min-width: 761px)').addEventListener('change', (event) => {
       if (event.matches) setMenu(false);
     });
 
-    // In-page links scroll smoothly and move focus to the target, for keyboard users.
-    // (CSS scroll-behavior is left off: it fights ScrollTrigger's measurements.)
     document.addEventListener('click', (event) => {
       const link = event.target.closest('a[href^="#"]');
       const target = link && link.hash.length > 1 && document.getElementById(link.hash.slice(1));
@@ -804,10 +648,10 @@
       scrollToElement(target);
       if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
-      history.pushState(null, '', link.hash);
+      if (link.hash === '#top') history.replaceState(null, '', location.pathname + location.search);
+      else history.pushState(null, '', link.hash);
     });
 
-    // A section is "current" while it crosses a thin band just above mid-screen.
     const byId = new Map(links.map((link) => [link.hash.slice(1), link]));
     const spy = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -823,19 +667,8 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Scroll reveals
-   * ------------------------------------------------------------------ */
+  // Scroll reveals
 
-  /** Blocks marked [data-reveal] fade up as they enter, in small staggered groups. */
-  /**
-   * Run `callback(elements)` once per element, the first time it comes into
-   * view, or at once if it is already above the screen (a reload part-way
-   * down the page). An IntersectionObserver, not a ScrollTrigger: it needs no
-   * re-measuring when the page height changes (fonts, pinned sections, loaded
-   * data), so an entrance can never be missed and leave content invisible.
-   * Elements seen in the same frame arrive together, for staggering.
-   */
   function onFirstView(elements, callback, rootMargin = '0px 0px -8% 0px') {
     const observer = new IntersectionObserver((entries) => {
       const ready = entries
@@ -864,7 +697,6 @@
     }));
   }
 
-  /** Section headings rise into place one word at a time. */
   function initHeadings() {
     for (const head of $$('.section__head')) {
       const heading = $('h2', head);
@@ -880,10 +712,6 @@
     }
   }
 
-  /**
-   * Paragraphs marked [data-scrub-words] start faint and light up word by
-   * word, tied directly to the scroll position: scrolling back dims them again.
-   */
   function initWordScrub() {
     for (const block of $$('[data-scrub-words]')) {
       const words = splitText(block, 'word');
@@ -898,7 +726,6 @@
     }
   }
 
-  /** Figures count up from zero the first time they are seen. */
   function initCounters() {
     if (!animate) return;
     for (const el of $$('[data-count]')) {
@@ -915,7 +742,6 @@
     }
   }
 
-  /** Reading progress bar along the top edge. */
   function initProgress() {
     const bar = $('[data-progress]');
     if (!bar || !hasGsap) return;
@@ -926,10 +752,32 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Ticker: two rows drifting in opposite directions. Scroll speed
-   * pushes them along and leans them in the direction of travel.
-   * ------------------------------------------------------------------ */
+  function initToTop() {
+    const button = $('[data-totop]');
+    if (!button) return;
+
+    let max = 1;
+    const measure = () => { max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight); };
+    measure();
+    window.addEventListener('resize', measure);
+    new ResizeObserver(measure).observe(document.body);
+
+    let y = window.scrollY;
+    let shown = null;
+    const update = oncePerFrame(() => {
+      const p = clamp(y / max, 0, 1);
+      button.style.setProperty('--p', p.toFixed(4));
+      const on = p >= 0.5;
+      if (on !== shown) {
+        button.classList.toggle('is-on', on);
+        shown = on;
+      }
+    });
+    window.addEventListener('scroll', () => { y = window.scrollY; update(); }, { passive: true });
+    update();
+  }
+
+  // Ticker
 
   function initTicker() {
     const root = $('[data-ticker]');
@@ -945,7 +793,6 @@
       x: 0,
     }));
 
-    // Repeat each row's content until it covers the screen, plus one spare copy to scroll into.
     function build() {
       for (const row of rows) {
         row.el.replaceChildren(row.group);
@@ -994,11 +841,7 @@
     run(trigger.isActive);
   }
 
-  /* ------------------------------------------------------------------ *
-   * Work at iLogitron: a highlight that follows the pointer inside each
-   * card, and (on tall screens, where the cards stick) the covered card
-   * shrinks slightly as the next one slides over it.
-   * ------------------------------------------------------------------ */
+  // Work at iLogitron
 
   function initJobs() {
     const list = $('.jobs__list');
@@ -1027,11 +870,7 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Contact: the black band rises like a curtain. It starts slightly
-   * narrower with deeper rounded corners and opens to full width as it
-   * scrolls into view, tied directly to the scroll position.
-   * ------------------------------------------------------------------ */
+  // Contact
 
   function initContactCurtain() {
     const band = $('#contact');
@@ -1048,10 +887,6 @@
         scrollTrigger: { trigger: band, start: 'top bottom', end: 'top 35%', scrub: true },
       });
   }
-
-  /* ------------------------------------------------------------------ *
-   * Buttons marked [data-magnetic] lean toward the pointer.
-   * ------------------------------------------------------------------ */
 
   function initMagnetic() {
     if (!animate || !finePointer.matches) return;
@@ -1072,10 +907,6 @@
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Local time in Agartala, updated on the minute.
-   * ------------------------------------------------------------------ */
-
   function initClock() {
     const el = $('[data-clock]');
     if (!el) return;
@@ -1088,18 +919,9 @@
       const now = new Date();
       el.textContent = formatter.format(now);
       el.dateTime = now.toISOString();
-      // Sleep until just after the next minute starts rather than polling every second.
       setTimeout(tick, 60_000 - (now.getTime() % 60_000) + 50);
     })();
   }
-
-  /* ------------------------------------------------------------------ *
-   * Filter chips, shared by the projects index and the experience log.
-   *
-   * `matches(item, value)` decides whether an item belongs to a filter.
-   * Each chip gets a small count, and the active filter is mirrored into
-   * the URL so a filtered view can be shared.
-   * ------------------------------------------------------------------ */
 
   function createFilter({ root, items, matches, noun, param, onChange }) {
     const chips = $$('[data-filter]', root);
@@ -1145,9 +967,7 @@
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Projects index: filtering, plus an image preview that trails the cursor.
-   * ------------------------------------------------------------------ */
+  // Projects index
 
   function initProjects() {
     const root = $('[data-work]');
@@ -1155,13 +975,24 @@
     if (!list) return;
     const rows = $$('.work__row', list);
 
+    const stripe = () => {
+      let i = 0;
+      for (const row of rows) {
+        if (row.hidden) continue;
+        row.classList.toggle('is-dark', i % 2 === 1);
+        i += 1;
+      }
+    };
+
     createFilter({
       root,
       items: rows,
       matches: (row, tag) => tag === 'all' || row.dataset.tags.split(' ').includes(tag),
       noun: ['project', 'projects'],
       param: 'work',
+      onChange: stripe,
     });
+    stripe();
 
     if (animate && finePointer.matches) initProjectPreview(list, rows);
   }
@@ -1171,7 +1002,6 @@
     preview.className = 'work-preview';
     preview.setAttribute('aria-hidden', 'true');
 
-    // One stacked image per project, so switching rows is a cross-fade, not a reload.
     const images = new Map();
     for (const row of rows) {
       const thumb = $('.work__thumb', row);
@@ -1185,8 +1015,6 @@
     }
     document.body.append(preview);
 
-    // Fetch every preview (~30 KB each) as the list nears, so the first hover
-    // shows its image at once instead of waiting behind the Three.js downloads.
     const preload = () => {
       for (const image of images.values()) {
         if (image.src) continue;
@@ -1212,7 +1040,6 @@
     function show(row, x, y) {
       if (row === activeRow) return;
       if (!activeRow) {
-        // First appearance: start where the pointer is instead of flying in from the corner.
         toX(x, x);
         toY(y, y);
       }
@@ -1245,7 +1072,6 @@
       show(row, x, y);
       toX(x);
       toY(y);
-      // Lean into the direction of travel, like a card being dragged by its edge.
       toTilt(clamp((event.clientX - lastX) * 0.6, -8, 8));
       lastX = event.clientX;
     }, { passive: true });
@@ -1253,9 +1079,7 @@
     window.addEventListener('scroll', () => { if (activeRow) hide(); }, { passive: true });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Experience log: one row open at a time, plus filtering by type.
-   * ------------------------------------------------------------------ */
+  // Experience log
 
   function initLog() {
     const root = $('[data-log]');
@@ -1287,9 +1111,7 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Copy-to-clipboard buttons.
-   * ------------------------------------------------------------------ */
+  // Copy-to-clipboard buttons
 
   async function copyText(text, successMessage = 'Copied') {
     try {
@@ -1306,10 +1128,7 @@
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   * Floating "Hire me" button: shown between the hero and the contact
-   * section, where it would be redundant.
-   * ------------------------------------------------------------------ */
+  // Floating "Hire me" button
 
   function initHireButton() {
     const button = $('[data-hire]');
@@ -1329,14 +1148,6 @@
     observer.observe(contact);
   }
 
-  /* ------------------------------------------------------------------ *
-   * Résumé. "View résumé" grows into a full-height sheet holding the PDF
-   * (and shrinks back into the button on close). Phones, and browsers
-   * without a built-in PDF viewer, just open the PDF itself. Download
-   * buttons drop their arrow into the tray and tick once saved.
-   * ------------------------------------------------------------------ */
-
-  /** Set by initResume: opens the viewer (used by the command palette). */
   let openResume = null;
 
   function initResume() {
@@ -1345,8 +1156,6 @@
     const pdf = trigger?.getAttribute('href');
     if (!pdf) return;
 
-    // Is the PDF there? Asked once; until it is uploaded, the buttons say so
-    // instead of downloading an error page.
     let exists = null;
     let known = false;
     const check = () => (exists ??= fetch(pdf, { method: 'HEAD' })
@@ -1359,7 +1168,6 @@
       return true;
     };
 
-    // Download buttons: the arrow drops into the tray, then a tick and "Saved".
     for (const link of $$('[data-resume-download]')) {
       const label = $('[data-label]', link);
       const original = label?.textContent;
@@ -1368,7 +1176,7 @@
         if (!known) {
           event.preventDefault();
           if (await missing()) return;
-          link.click();        // now known to exist: run the real download
+          link.click();
           return;
         }
         clearTimeout(timer);
@@ -1393,10 +1201,9 @@
     const fades = $$('[data-resume-fade]', dialog);
     const frame = $('[data-resume-frame]', dialog);
     frame.addEventListener('load', () => frame.classList.add('is-loaded'));
-    let origin = null;      // the element the sheet grows from and returns to
+    let origin = null;
     let busy = false;
 
-    /** A clip-path that crops the sheet down to el's box (or a small centred pill). */
     function clipTo(el) {
       const box = sheet.getBoundingClientRect();
       const b = el?.getBoundingClientRect();
@@ -1417,7 +1224,6 @@
       busy = true;
       origin = from;
       if (!frame.getAttribute('src')) frame.src = `${pdf}#view=FitH&navpanes=0`;
-      lenis?.stop();
       dialog.showModal();
       if (!animate) { busy = false; return; }
       gsap.timeline({ onComplete: () => { busy = false; } })
@@ -1436,7 +1242,6 @@
       const done = () => {
         dialog.close();
         gsap?.set([shade, sheet, ...fades], { clearProps: 'opacity,transform,clipPath,boxShadow' });
-        lenis?.start();
         busy = false;
         origin?.focus({ preventScroll: true });
       };
@@ -1450,7 +1255,6 @@
     }
 
     trigger.addEventListener('click', (event) => {
-      // Ctrl/Cmd/Shift-click and middle-click keep their usual "open elsewhere" meaning.
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
       event.preventDefault();
       open(trigger);
@@ -1460,18 +1264,8 @@
     openResume = () => open(null);
   }
 
-  /* ------------------------------------------------------------------ *
-   * Command palette (Ctrl/Cmd + K, or "/").
-   *
-   * Commands are gathered from the page itself (sections, projects and
-   * contact links), so the palette never drifts out of date with the HTML.
-   * ------------------------------------------------------------------ */
+  // Command palette (Ctrl/Cmd + K, or "/")
 
-  /**
-   * Subsequence match: every character of `needle` must appear in `text`, in
-   * order. Matches at the start of a word and runs of consecutive characters
-   * score higher. Returns null when there is no match.
-   */
   function fuzzyMatch(needle, text) {
     const haystack = text.toLowerCase();
     const positions = [];
@@ -1533,7 +1327,6 @@
 
     for (const key of $$('[data-mod-key]')) key.textContent = isMac ? '⌘K' : 'Ctrl K';
 
-    /** Build the label with matched characters wrapped in <mark>. */
     function highlight(label, positions) {
       const fragment = document.createDocumentFragment();
       const hits = new Set(positions);
@@ -1624,11 +1417,9 @@
       render();
       dialog.showModal();
       document.documentElement.classList.add('is-palette-open');
-      lenis?.stop();
     }
     dialog.addEventListener('close', () => {
       document.documentElement.classList.remove('is-palette-open');
-      lenis?.start();
     });
 
     input.addEventListener('input', render);
@@ -1652,7 +1443,6 @@
       if (item) run(results[Number(item.dataset.index)]);
     });
 
-    // A click that lands on the <dialog> itself (not its children) is a click on the backdrop.
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();
     });
@@ -1670,10 +1460,6 @@
     });
   }
 
-  /* ------------------------------------------------------------------ *
-   * Start-up. A failure in one feature is logged and the rest carry on.
-   * ------------------------------------------------------------------ */
-
   function run(name, feature) {
     try {
       return feature();
@@ -1683,11 +1469,6 @@
     }
   }
 
-  // Smooth scrolling first, so every ScrollTrigger below is created against it.
-  run('initSmoothScroll', initSmoothScroll);
-
-  // Then the intro: it is above the fold and the first thing a visitor sees.
-  // The preloader plays it when it leaves; if the preloader fails, play it now.
   const intro = run('initIntro', initIntro) ?? { letters: [], play() {} };
   run('initLetterHover', () => initLetterHover(intro.letters));
   if (!run('initLoader', () => { initLoader(intro.play); return true; })) intro.play();
@@ -1695,12 +1476,10 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
+    initCopy, initHireButton, initToTop, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 
-  // Web fonts and late images change the layout, and with it every trigger
-  // position, so measure again once each has settled.
   if (hasGsap) {
     document.fonts?.ready.then(() => ScrollTrigger.refresh());
     if (document.readyState !== 'complete') {

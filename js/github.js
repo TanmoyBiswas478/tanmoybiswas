@@ -1,18 +1,3 @@
-/*
- * GitHub contributions as a 3D "commit city": the last twelve months as a
- * 53 x 7 grid of bars, one per day, as tall as that day's contributions.
- * Empty days are flat tiles; busy days rise from violet into coral.
- *
- * The bars grow week by week when the card scrolls into view, the city leans
- * toward the pointer (or the phone's tilt, see lean.js), and hovering or
- * tapping a bar shows its date and count.
- *
- * Data: /api/github (Vercel function, GitHub's GraphQL API, needs a
- * GITHUB_TOKEN) first, then a public mirror of the same calendar, so the
- * section also works on a plain static server.
- *
- * script.js loads this module on demand, as the section comes near.
- */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BoxGeometry, InstancedMesh, Mesh,
   MeshLambertMaterial, AmbientLight, DirectionalLight, Color, Group, Object3D,
@@ -22,7 +7,7 @@ import { createLean } from './lean.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 
-/* ------------------------------ Data ------------------------------ */
+// Data
 
 async function getJson(url) {
   const response = await fetch(url, { headers: { accept: 'application/json' } });
@@ -30,14 +15,12 @@ async function getJson(url) {
   return response.json();
 }
 
-/** Resolves to { total, days: [{ date: 'YYYY-MM-DD', count, level 0..4 }] }, oldest first. */
 export async function loadContributions(user) {
-  // The function only exists on Vercel; locally it would just log a 404.
   const local = location.hostname === 'localhost' || location.hostname.startsWith('127.') || location.hostname === '[::1]';
   if (!local) try {
     const own = await getJson('/api/github');
     if (own?.days?.length) return own;
-  } catch { /* Not deployed, no token, or rate-limited: use the public mirror. */ }
+  } catch { /* fall back to the public mirror */ }
 
   const data = await getJson(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(user)}?y=last`);
   const days = (data.contributions ?? []).map(({ date, count, level }) => ({ date, count, level }));
@@ -54,7 +37,6 @@ function summarise(days) {
     longest = Math.max(longest, run);
     if (day.count > best.count) best = day;
   }
-  // Today without a commit yet does not break the current streak.
   let current = 0;
   let i = days.length - 1;
   if (days[i]?.count === 0) i--;
@@ -83,7 +65,7 @@ function fillStats(root, total, stats) {
   set('best', String(stats.best.count), `on ${formatDate(stats.best.date)}`);
 }
 
-/* ------------------------------ Scene ------------------------------ */
+// Scene
 
 const SPACING = 1;          // distance between neighbouring days
 const FOOTPRINT = 0.78;     // width of one bar
@@ -91,7 +73,6 @@ const MAX_HEIGHT = 4.6;     // the busiest day
 const FLAT = 0.08;          // an empty day
 
 function buildCity(days, colors) {
-  // GitHub's calendar: columns are weeks, rows run Sunday (top) to Saturday.
   const offset = new Date(`${days[0].date}T00:00:00Z`).getUTCDay();
   const weeks = Math.ceil((offset + days.length) / 7);
   const max = Math.max(1, ...days.map((day) => day.count));
@@ -105,7 +86,6 @@ function buildCity(days, colors) {
       week,
       x: (week - (weeks - 1) / 2) * SPACING,
       z: (weekday - 3) * SPACING,
-      // Square root keeps a few huge days from flattening everything else.
       height: day.count ? 0.35 + (MAX_HEIGHT - 0.35) * Math.sqrt(day.count / max) : FLAT,
       color: colors[Math.max(0, Math.min(4, day.level ?? 0))],
     };
@@ -156,7 +136,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
   const mesh = new InstancedMesh(geometry, material, bars.length);
   bars.forEach((bar, i) => mesh.setColorAt(i, bar.color));
 
-  // A dark plinth under the city.
   const plinth = new Mesh(
     new BoxGeometry(weeks * SPACING + 1.2, 0.3, 7 * SPACING + 1.2),
     new MeshLambertMaterial({ color: 0x17113a }),
@@ -177,7 +156,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
   const camera = new PerspectiveCamera(30, 2, 0.5, 400);
   const view = { turn: -0.16, elevation: 0.62 };  // base angle of the city, radians
 
-  /* Growth: 0..1, each week rising a little after the one before. */
   const state = { grow: still ? 1 : 0 };
   const dummy = new Object3D();
   let hovered = -1;
@@ -202,15 +180,12 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
     const { clientWidth: width, clientHeight: height } = canvas;
     if (!width || !height) return;
     const aspect = width / height;
-    // Narrow cards turn the city further onto its diagonal, so it fits taller.
-    // Narrow cards: the year runs diagonally away from the camera, so it fills the card.
     view.turn = aspect < 1.1 ? -1.2 : aspect < 1.6 ? -0.6 : -0.16;
     view.elevation = aspect < 1.1 ? 1.0 : 0.62;
     const halfWidth = (weeks * SPACING / 2) * Math.cos(view.turn) + (3.5 * SPACING) * Math.abs(Math.sin(view.turn));
     const halfFov = (camera.fov * Math.PI) / 360;
     const distance = (halfWidth * (aspect < 1.1 ? 1.9 : 1.15)) / (Math.tan(halfFov) * aspect) + 6;
     camera.aspect = aspect;
-    // On phones the recent (busy) end points at the camera; aim nearer it so it is not cut off.
     const aimZ = aspect < 1.1 ? 5.5 : 0;
     camera.position.set(0, 0.6 + Math.sin(view.elevation) * distance, aimZ + Math.cos(view.elevation) * distance);
     camera.lookAt(0, 0.6, aimZ);
@@ -222,8 +197,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
 
   new ResizeObserver(() => { frame(); render(); markDirty(); }).observe(canvas);
   frame();
-  // Compile shaders off the main thread (KHR_parallel_shader_compile)
-  // instead of freezing the page for the first frame.
   await renderer.compileAsync(scene, camera).catch(() => {});
   city.rotation.y = view.turn;
   placeBars();
@@ -231,7 +204,7 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
   canvas.classList.add('is-live');
   if (status) status.hidden = true;
 
-  /* ---- Hover / tap: date and count of the bar under the pointer ---- */
+  // Hover / tap
 
   const raycaster = new Raycaster();
   const pointer = new Vector2();
@@ -264,7 +237,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
     const x = Math.min(rect.width - 12, Math.max(12, clientX - rect.left));
     tip.style.left = `${x}px`;
     tip.style.top = `${clientY - rect.top}px`;
-    // Keep the label inside the card near its edges.
     const shift = x < 120 ? '0%' : x > rect.width - 120 ? '-100%' : '-50%';
     tip.style.translate = `${shift} calc(-100% - 14px)`;
   }
@@ -286,7 +258,7 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
 
   if (still || !gsap) return true;
 
-  /* ---- Motion: grow on first view, lean toward the pointer, drift ---- */
+  // Motion
 
   const grow = () => gsap.to(state, { grow: 1, duration: 2.4, ease: 'power2.out', onUpdate: () => { placeBars(); dirty = true; } });
   if (ScrollTrigger) ScrollTrigger.create({ trigger: card, start: 'top 80%', once: true, onEnter: grow });
@@ -300,7 +272,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
     const target = read(time);
     const dx = target.x - lean.x;
     const dy = target.y - lean.y;
-    // Settled and not growing: skip the frame entirely (this was the lag).
     if (Math.abs(dx) < 0.002 && Math.abs(dy) < 0.002 && !dirty) return;
     dirty = false;
     lean.x += dx * 0.08;
@@ -310,7 +281,6 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
     render();
   };
 
-  // Animate only while on screen and the tab is visible.
   let onScreen = false;
   const updateLoop = () => {
     const on = onScreen && !document.hidden;

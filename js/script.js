@@ -849,16 +849,51 @@
       }), { passive: true });
     }
 
-    if (!animate) return;
-    gsap.matchMedia().add('(min-width: 761px) and (min-height: 820px)', () => {
-      cards.slice(0, -1).forEach((card, i) => {
-        gsap.to(card, {
-          scale: 0.95,
-          ease: 'none',
-          scrollTrigger: { trigger: cards[i + 1], start: 'top bottom', end: 'top 20%', scrub: true },
-        });
+    if (!animate || cards.length < 2) return;
+
+    // Stack (sticky) only when the tallest card fits under the nav with room
+    // for the stacked edges; a stuck card taller than the screen would hide
+    // its own bottom lines. Otherwise each card grows in as it scrolls up.
+    let stacked = null;
+    let ctx = null;
+    const layout = () => {
+      const navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 68;
+      const tallest = Math.max(...cards.map((card) => card.offsetHeight));
+      const fits = tallest + navH + 20 + (cards.length - 1) * 14 + 24 <= window.innerHeight;
+      if (fits === stacked) return;
+      stacked = fits;
+
+      ctx?.revert();
+      list.classList.toggle('is-stacked', fits);
+      ctx = gsap.context(() => {
+        if (fits) {
+          cards.slice(0, -1).forEach((card, i) => {
+            gsap.to(card, {
+              scale: 0.95,
+              ease: 'none',
+              scrollTrigger: { trigger: cards[i + 1], start: 'top bottom', end: 'top 20%', scrub: true },
+            });
+          });
+        } else {
+          cards.forEach((card) => {
+            gsap.fromTo(card, { scale: 0.92 }, {
+              scale: 1,
+              ease: 'none',
+              scrollTrigger: { trigger: card, start: 'top bottom', end: 'top 65%', scrub: true },
+            });
+          });
+        }
       });
+      refreshScroll();
+    };
+
+    layout();
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(layout, 200);
     });
+    document.fonts?.ready.then(layout);
   }
 
   // Contact

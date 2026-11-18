@@ -392,16 +392,18 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .job__body li { position: relative; padding-left: 26px; color: var(--dim); font-size: 0.9375rem; text-wrap: pretty; }
 .job__body li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 12px; height: 2px; background: var(--ink); }
 
-@media (min-width: 761px) and (min-height: 820px) {
-  .jobs__list { gap: 0; }
-  .job {
-    position: sticky; top: calc(var(--nav-h) + 20px + var(--stack, 0) * 14px);
-    margin-bottom: 28px; transform-origin: center top;
-  }
-  .job:nth-child(2) { --stack: 1; }
-  .job:nth-child(3) { --stack: 2; }
-  .job:nth-child(4) { --stack: 3; }
+/* Stacked cards: script.js adds .is-stacked only when the tallest card fits
+   on screen. Equal row heights stop a taller card poking out above the rest
+   when the list scrolls away. */
+.job { transform-origin: center top; }
+.jobs__list.is-stacked { gap: 0; grid-auto-rows: 1fr; }
+.jobs__list.is-stacked .job {
+  position: sticky; top: calc(var(--nav-h) + 20px + var(--stack, 0) * 14px);
+  margin-bottom: 28px;
 }
+.job:nth-child(2) { --stack: 1; }
+.job:nth-child(3) { --stack: 2; }
+.job:nth-child(4) { --stack: 3; }
 
 /* Projects index */
 .work__list { padding: 0; overflow: hidden; }

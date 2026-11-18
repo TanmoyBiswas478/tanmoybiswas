@@ -90,7 +90,7 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   } catch {
     return false;
   }
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
   renderer.setPixelRatio(pixelRatio);
 
   const groups = groupEls.map((el, g) => ({

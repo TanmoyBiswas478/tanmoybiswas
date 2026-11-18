@@ -246,27 +246,42 @@
       return;
     }
 
-    const label = $('[data-cursor-label]', cursor);
-    document.documentElement.classList.add('has-custom-cursor');
-    const toX = gsap.quickTo(cursor, 'x', { duration: 0.15, ease: 'power3.out' });
-    const toY = gsap.quickTo(cursor, 'y', { duration: 0.15, ease: 'power3.out' });
+    const clickable = 'a, button, input, textarea, select, label, summary, [role="button"], [role="option"]';
+    let overLink = false;
+    let tookOver = false;
+    // The system pointer is hidden only once the ball has really rendered; if it
+    // can't (an old browser, a style failing), the normal pointer stays.
+    const takeOver = () => {
+      requestAnimationFrame(() => {
+        const shown = cursor.checkVisibility
+          ? cursor.checkVisibility()
+          : getComputedStyle(cursor).display !== 'none';
+        document.documentElement.classList.toggle('has-custom-cursor', shown);
+      });
+    };
+    // No easing and no animation loop: the ball is placed exactly where the
+    // pointer is, straight from the input event. `pointerrawupdate` (Chromium)
+    // delivers positions before the browser batches them per frame.
     let visible = false;
+    const moveEvent = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'pointermove';
 
-    window.addEventListener('pointermove', (event) => {
+    window.addEventListener(moveEvent, (event) => {
       if (event.pointerType !== 'mouse') return;
+      cursor.style.translate = `${event.clientX}px ${event.clientY}px`;
       if (!visible) {
-        toX(event.clientX, event.clientX);
-        toY(event.clientY, event.clientY);
         cursor.classList.add('is-visible');
+        if (!tookOver) { tookOver = true; takeOver(); }
         visible = true;
       }
-      toX(event.clientX);
-      toY(event.clientY);
+    }, { passive: true });
 
-      const text = event.target.closest?.('[data-cursor-text]')?.dataset.cursorText ?? '';
-      if (text !== label.textContent) {
-        label.textContent = text;
-        cursor.classList.toggle('has-label', Boolean(text));
+    // Clickable check only needs normal-rate events.
+    window.addEventListener('pointermove', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      const onLink = Boolean(event.target.closest?.(clickable));
+      if (onLink !== overLink) {
+        overLink = onLink;
+        cursor.classList.toggle('is-link', onLink);
       }
     }, { passive: true });
 
@@ -278,22 +293,27 @@
 
     for (const frame of $$('iframe')) frame.addEventListener('pointerenter', hideCursor);
 
+    // Modal dialogs sit in the browser's top layer. Showing the ball as a
+    // popover puts it there too (re-shown after each dialog opens, to stay on
+    // top). If that isn't possible, give the system pointer back while a
+    // dialog is open, so there is always something to see.
     const dialogs = $$('dialog');
-    if (typeof cursor.showPopover === 'function') {
-      cursor.setAttribute('popover', 'manual');
-      const raise = () => {
+    const canPop = typeof cursor.showPopover === 'function';
+    if (canPop) cursor.setAttribute('popover', 'manual');
+    const sync = () => {
+      let onTop = false;
+      if (canPop) {
         try {
           if (cursor.matches(':popover-open')) cursor.hidePopover();
           cursor.showPopover();
+          onTop = cursor.matches(':popover-open');
         } catch {}
-      };
-      raise();
-      new MutationObserver(raise).observe(document.body, { subtree: true, attributeFilter: ['open'] });
-    } else {
-      const sync = () => document.documentElement.classList
-        .toggle('cursor-under-dialog', dialogs.some((d) => d.open));
-      new MutationObserver(sync).observe(document.body, { subtree: true, attributeFilter: ['open'] });
-    }
+      }
+      document.documentElement.classList
+        .toggle('cursor-under-dialog', !onTop && dialogs.some((d) => d.open));
+    };
+    sync();
+    new MutationObserver(sync).observe(document.body, { subtree: true, attributeFilter: ['open'] });
   }
 
   // Pinned story
@@ -921,12 +941,21 @@
       const toX = gsap.quickTo(button, 'x', { duration: 0.5, ease: 'power3.out' });
       const toY = gsap.quickTo(button, 'y', { duration: 0.5, ease: 'power3.out' });
 
+      // Measure once per hover (minus the current pull), not on every move.
+      let rect = null;
+      button.addEventListener('pointerenter', () => {
+        const box = button.getBoundingClientRect();
+        const pullX = gsap.getProperty(button, 'x');
+        const pullY = gsap.getProperty(button, 'y');
+        rect = { cx: box.left - pullX + box.width / 2, cy: box.top - pullY + box.height / 2 };
+      });
       button.addEventListener('pointermove', (event) => {
-        const rect = button.getBoundingClientRect();
-        toX((event.clientX - rect.left - rect.width / 2) * 0.3);
-        toY((event.clientY - rect.top - rect.height / 2) * 0.4);
+        if (!rect) return;
+        toX((event.clientX - rect.cx) * 0.3);
+        toY((event.clientY - rect.cy) * 0.4);
       }, { passive: true });
       button.addEventListener('pointerleave', () => {
+        rect = null;
         toX(0);
         toY(0);
       });
@@ -1087,12 +1116,15 @@
       toTilt(0);
     }
 
+    let previewSize = null; // measured once, not on every pointer move
+    window.addEventListener('resize', () => { previewSize = null; });
+
     list.addEventListener('pointermove', (event) => {
       if (event.pointerType !== 'mouse') return;
       const row = event.target.closest('.work__row');
       if (!row) return hide();
 
-      const { offsetWidth: w, offsetHeight: h } = preview;
+      const { w, h } = (previewSize ??= { w: preview.offsetWidth, h: preview.offsetHeight });
       const x = clamp(event.clientX + 32, 12, window.innerWidth - w - 12);
       const y = clamp(event.clientY - h / 2, 12, window.innerHeight - h - 12);
       show(row, x, y);

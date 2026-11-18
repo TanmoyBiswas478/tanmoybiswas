@@ -884,21 +884,21 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 /* Cursor follower */
 .cursor {
   position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none;
-  display: grid; place-items: center;
-  width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%;
+  display: block !important; /* the UA hides closed popovers; the ball must never vanish */
+  width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
   background: var(--grad);
-  box-shadow: 0 0 0 9px var(--coal), 0 0 0 18px rgba(255, 255, 255, 0.92);
-  opacity: 0; scale: 0.16;
-  transition: scale 0.35s var(--ease), opacity 0.2s, background var(--fast), box-shadow 0.25s;
+  /* dark ring inside a light ring: one of them always contrasts */
+  box-shadow: 0 0 0 1.5px var(--coal), 0 0 0 3px rgba(255, 255, 255, 0.92);
+  opacity: 0; will-change: translate;
+  transition: opacity 0.2s, background var(--fast), box-shadow var(--fast);
 }
+/* Over anything clickable: same size, solid coral with a dark ring. */
+.cursor.is-link { background: var(--coral); box-shadow: 0 0 0 2px var(--coal), 0 0 0 4px rgba(255, 255, 255, 0.92); }
 .cursor[popover] { inset: auto; left: 0; top: 0; padding: 0; border: 0; overflow: visible; color: inherit; }
 .cursor[popover]::backdrop { display: none; }
 html.has-custom-cursor.cursor-under-dialog,
 html.has-custom-cursor.cursor-under-dialog * { cursor: auto !important; }
 .cursor.is-visible { opacity: 1; }
-.cursor.has-label { scale: 1; background: var(--grad); box-shadow: 0 0 0 1.5px var(--coal); }
-.cursor__label { font: 500 var(--fs-xs) var(--display); color: var(--coal); opacity: 0; transition: opacity var(--fast); }
-.cursor.has-label .cursor__label { opacity: 1; }
 html.has-custom-cursor, html.has-custom-cursor * { cursor: none !important; }
 
 /* Story (pinned 3D particles) */

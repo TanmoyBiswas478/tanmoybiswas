@@ -405,7 +405,8 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 
 /* Projects index */
 .work__list { padding: 0; overflow: hidden; }
-.work__row { background: var(--surface); transition: opacity 0.2s, background var(--fast); }
+.work__row { background: var(--surface); transition: background var(--fast); }
+.work__row > a { transition: opacity 0.2s; }
 .work__row.is-dark, html:not(.js) .work__row:nth-child(even) { background: var(--black); }
 .work__row[hidden] { display: none; }
 
@@ -426,7 +427,7 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .work__thumb { display: none; }
 
 @media (hover: hover) and (pointer: fine) {
-  .work__list:hover .work__row:not(:hover) { opacity: 0.4; }
+  .work__list:hover .work__row:not(:hover) > a { opacity: 0.4; }
   .work__row a:hover .work__name { translate: 14px 0; }
   .work__row a:hover .arr { color: var(--ink); translate: 3px -3px; }
 }

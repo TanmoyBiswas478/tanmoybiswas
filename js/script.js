@@ -23,6 +23,13 @@
 
   const animate = hasGsap && !reducedMotion.matches;
 
+  // Data saver / 2G: skip the decorative 3D. Phones: build scenes only when
+  // they're about to scroll into view. Desktop: pre-build them in idle time so
+  // scrolling into a section never hitches.
+  const connection = navigator.connection;
+  const saveData = Boolean(connection?.saveData) || /2g$/.test(connection?.effectiveType ?? '');
+  const prebuild = !saveData && !window.matchMedia('(max-width: 760px)').matches;
+
   const heroScroll = { progress: 0 };   // 0..1 as the hero scrolls away
   const storyState = { morph: 0 };      // 0..2 through the pinned story
 
@@ -323,7 +330,7 @@
     }
 
     const canvas = $('[data-story-canvas]', section);
-    if (!canvas || !scriptUrl) return;
+    if (!canvas || !scriptUrl || saveData) return;
     let started = false;
     const mount = () => {
       if (started) return;
@@ -337,12 +344,12 @@
       if (entries[0].isIntersecting) mount();
     }, { rootMargin: '600px 0px' });
     nearby.observe(section);
-    terrainSettled.then(() => whenIdle(mount));
+    if (prebuild) terrainSettled.then(() => whenIdle(mount));
   }
 
   function initOrb() {
     const canvas = $('[data-orb]');
-    if (!canvas || !scriptUrl) return;
+    if (!canvas || !scriptUrl || saveData) return;
     let started = false;
     const mount = () => {
       if (started) return;
@@ -356,12 +363,12 @@
       if (entries[0].isIntersecting) mount();
     }, { rootMargin: '600px 0px' });
     nearby.observe(canvas);
-    terrainSettled.then(() => setTimeout(() => whenIdle(mount), 1500));
+    if (prebuild) terrainSettled.then(() => setTimeout(() => whenIdle(mount), 1500));
   }
 
   function initSkills() {
     const root = $('[data-skills]');
-    if (!root || !scriptUrl) return;
+    if (!root || !scriptUrl || saveData) return;
     const probe = document.createElement('canvas');
     if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) return;
     root.classList.add('has-globe');
@@ -379,22 +386,6 @@
       if (entries[0].isIntersecting) whenIdle(mount);
     }, { rootMargin: '700px 0px' });
     terrainSettled.then(() => nearby.observe(root));
-  }
-
-  function initImages() {
-    const lazy = $$('img[loading="lazy"]');
-    if (!lazy.length) return;
-    const decodeNext = (queue) => {
-      const img = queue.shift();
-      if (!img) return;
-      img.decode?.().catch(() => {}).finally(() => whenIdle(() => decodeNext(queue)));
-    };
-    const fetchAll = () => whenIdle(() => {
-      lazy.forEach((img) => { img.loading = 'eager'; });
-      decodeNext([...lazy]);
-    });
-    if (document.readyState === 'complete') fetchAll();
-    else window.addEventListener('load', fetchAll, { once: true });
   }
 
   function initGithub() {
@@ -416,13 +407,13 @@
       if (entries[0].isIntersecting) mount();
     }, { rootMargin: '700px 0px' });
     nearby.observe(section);
-    terrainSettled.then(() => setTimeout(() => whenIdle(mount), 3000));
+    if (prebuild) terrainSettled.then(() => setTimeout(() => whenIdle(mount), 3000));
   }
 
   function initScenes() {
     const phone = window.matchMedia('(max-width: 760px)').matches;
     const canvases = $$('[data-scene]').filter((canvas) => !phone || canvas.dataset.scene === 'galaxy');
-    if (!canvases.length || !scriptUrl) return;
+    if (!canvases.length || !scriptUrl || saveData) return;
     let queue = Promise.resolve();
     const nearby = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -562,7 +553,7 @@
 
   function initTerrain() {
     const canvas = $('[data-terrain]');
-    if (!canvas || !scriptUrl) {
+    if (!canvas || !scriptUrl || saveData) {
       terrainFinished();
       return;
     }
@@ -692,8 +683,8 @@
       duration: 0.8,
       ease: 'power3.out',
       stagger: 0.07,
-      overwrite: true,
-      clearProps: 'opacity,visibility,transform',
+      overwrite: 'auto', // keep the job cards' scroll-linked scale tween alive
+      clearProps: 'opacity,visibility',
     }));
   }
 
@@ -1476,14 +1467,20 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initToTop, initResume, initPalette, initImages, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
+    initCopy, initHireButton, initToTop, initResume, initPalette, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 
   if (hasGsap) {
+    // Opened with a #section link: the browser jumps before the pinned story
+    // adds its height, so it lands short. Jump again once layout settles.
+    const target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+    const settle = () => {
+      ScrollTrigger.refresh();
+      if (target) target.scrollIntoView({ behavior: 'auto' });
+    };
     document.fonts?.ready.then(() => ScrollTrigger.refresh());
-    if (document.readyState !== 'complete') {
-      window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
-    }
+    if (document.readyState === 'complete') settle();
+    else window.addEventListener('load', settle, { once: true });
   }
 })();

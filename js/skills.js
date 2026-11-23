@@ -1,7 +1,8 @@
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points, LineSegments,
+  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points, LineSegments,
   ShaderMaterial, Group, Vector3, Color, AdditiveBlending,
 } from './vendor/three.module.min.js';
+import { createView } from './gl.js';
 
 const TAU = Math.PI * 2;
 const R = 1.6;                                   // globe radius
@@ -85,8 +86,7 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
 
   let renderer;
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
-    renderer.debug.checkShaderErrors = false;    // no blocking shader-status queries
+    renderer = createView(canvas);
   } catch {
     return false;
   }

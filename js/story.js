@@ -1,7 +1,8 @@
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
+  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   Points, ShaderMaterial, AdditiveBlending, Color, Group, Raycaster, Vector2, Vector3, Sphere,
 } from './vendor/three.module.min.js';
+import { createView } from './gl.js';
 import { createLean } from './lean.js';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -125,8 +126,7 @@ const fragmentShader = /* glsl */ `
 export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = false } = {}) {
   let renderer;
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
-    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
+    renderer = createView(canvas);
   } catch {
     return false;
   }

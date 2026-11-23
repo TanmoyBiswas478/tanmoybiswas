@@ -1,7 +1,8 @@
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
+  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   LineSegments, ShaderMaterial, Color, Vector2, Vector3, Plane, Raycaster, Group,
 } from './vendor/three.module.min.js';
+import { createView } from './gl.js';
 import { createLean } from './lean.js';
 
 const ROWS = 46;        // ridgelines, front to back
@@ -143,8 +144,7 @@ function buildRidgelines() {
 export async function mountTerrain(canvas, { gsap, still = false, scroll = { progress: 0 } } = {}) {
   let renderer;
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
-    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
+    renderer = createView(canvas);
   } catch {
     return false;
   }

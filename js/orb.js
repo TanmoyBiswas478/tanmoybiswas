@@ -1,8 +1,9 @@
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
+  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
   Points, ShaderMaterial, Color, Group, IcosahedronGeometry, AdditiveBlending,
   Raycaster, Vector2, Vector3, Sphere,
 } from './vendor/three.module.min.js';
+import { createView } from './gl.js';
 import { SIMPLEX_NOISE } from './terrain.js';
 import { createLean } from './lean.js';
 
@@ -79,8 +80,7 @@ function ringPositions(count) {
 export async function mountOrb(canvas, { gsap, ScrollTrigger, still = false } = {}) {
   let renderer;
   try {
-    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
-    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
+    renderer = createView(canvas);
   } catch {
     return false;
   }

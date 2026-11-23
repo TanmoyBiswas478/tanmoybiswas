@@ -735,6 +735,10 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .appreciate.is-pop .appreciate__heart { animation: appreciate-pop 0.5s var(--ease); }
 @keyframes appreciate-pop { 40% { scale: 1.45; } }
 
+/* Canvas for the three.js burst (js/burst.js); shown only while it plays. */
+.burst { position: fixed; z-index: 85; width: 560px; height: 560px; pointer-events: none; display: none; }
+.burst.is-on { display: block; }
+
 /* Footer */
 .footer { border-top: 1px solid var(--rule); }
 .footer__bar {

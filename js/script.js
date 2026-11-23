@@ -1230,6 +1230,19 @@
       })
       .catch(() => {})); // not configured or offline: everything stays hidden
 
+    // The three.js burst (js/burst.js) loads on first hover or focus, so the
+    // click itself never waits on a download.
+    const canBurst = button && animate && !saveData && scriptUrl;
+    let burst = null;
+    const loadBurst = () => {
+      burst ??= import(new URL('burst.js', scriptUrl).href).catch(() => null);
+      return burst;
+    };
+    if (canBurst) {
+      button.addEventListener('pointerenter', loadBurst, { once: true });
+      button.addEventListener('focus', loadBurst, { once: true });
+    }
+
     // Press to appreciate, press again to take it back.
     button?.addEventListener('click', () => {
       const liking = button.getAttribute('aria-pressed') !== 'true';
@@ -1240,6 +1253,10 @@
         void button.offsetWidth; // restart the pop animation
         button.classList.add('is-pop');
         toast('Thank you. That means a lot.');
+        if (canBurst) {
+          const heart = $('.appreciate__heart', button).getBoundingClientRect();
+          loadBurst().then((module) => module?.playBurst(heart.left + heart.width / 2, heart.top + heart.height / 2));
+        }
       } else {
         store.set('tb-liked', '');
       }

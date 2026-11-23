@@ -236,85 +236,6 @@
     });
   }
 
-  // Cursor follower
-
-  function initCursor() {
-    const cursor = $('[data-cursor]');
-    if (!cursor) return;
-    if (!animate || !finePointer.matches) {
-      cursor.remove();
-      return;
-    }
-
-    const clickable = 'a, button, input, textarea, select, label, summary, [role="button"], [role="option"], [data-hot]';
-    let overLink = false;
-    let tookOver = false;
-    // The system pointer is hidden only once the ball has really rendered; if it
-    // can't (an old browser, a style failing), the normal pointer stays.
-    const takeOver = () => {
-      requestAnimationFrame(() => {
-        const shown = cursor.checkVisibility
-          ? cursor.checkVisibility()
-          : getComputedStyle(cursor).display !== 'none';
-        document.documentElement.classList.toggle('has-custom-cursor', shown);
-      });
-    };
-    // No easing and no animation loop: the ball is placed exactly where the
-    // pointer is, straight from the input event. `pointerrawupdate` (Chromium)
-    // delivers positions before the browser batches them per frame.
-    let visible = false;
-    const moveEvent = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'pointermove';
-
-    window.addEventListener(moveEvent, (event) => {
-      if (event.pointerType !== 'mouse') return;
-      cursor.style.translate = `${event.clientX}px ${event.clientY}px`;
-      if (!visible) {
-        cursor.classList.add('is-visible');
-        if (!tookOver) { tookOver = true; takeOver(); }
-        visible = true;
-      }
-    }, { passive: true });
-
-    // Clickable check only needs normal-rate events.
-    window.addEventListener('pointermove', (event) => {
-      if (event.pointerType !== 'mouse') return;
-      const onLink = Boolean(event.target.closest?.(clickable));
-      if (onLink !== overLink) {
-        overLink = onLink;
-        cursor.classList.toggle('is-link', onLink);
-      }
-    }, { passive: true });
-
-    const hideCursor = () => {
-      cursor.classList.remove('is-visible');
-      visible = false;
-    };
-    document.documentElement.addEventListener('pointerleave', hideCursor);
-
-    for (const frame of $$('iframe')) frame.addEventListener('pointerenter', hideCursor);
-
-    // Modal dialogs sit in the browser's top layer. Showing the ball as a
-    // popover puts it there too (re-shown after each dialog opens, to stay on
-    // top). If that isn't possible, give the system pointer back while a
-    // dialog is open, so there is always something to see.
-    const dialogs = $$('dialog');
-    const canPop = typeof cursor.showPopover === 'function';
-    if (canPop) cursor.setAttribute('popover', 'manual');
-    const sync = () => {
-      let onTop = false;
-      if (canPop) {
-        try {
-          if (cursor.matches(':popover-open')) cursor.hidePopover();
-          cursor.showPopover();
-          onTop = cursor.matches(':popover-open');
-        } catch {}
-      }
-      document.documentElement.classList
-        .toggle('cursor-under-dialog', !onTop && dialogs.some((d) => d.open));
-    };
-    sync();
-    new MutationObserver(sync).observe(document.body, { subtree: true, attributeFilter: ['open'] });
-  }
 
   // Pinned story
 
@@ -1619,7 +1540,7 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initStats, initHireButton, initToTop, initResume, initPalette, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
+    initCopy, initStats, initHireButton, initToTop, initResume, initPalette, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 

@@ -1,9 +1,8 @@
 import {
-  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points,
+  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points,
   LineSegments, LineBasicMaterial, ShaderMaterial, Color, Group, AdditiveBlending, NormalBlending,
 } from './vendor/three.module.min.js';
 import { createLean } from './lean.js';
-import { createView } from './gl.js';
 
 const TAU = Math.PI * 2;
 const rand = (min, max) => min + Math.random() * (max - min);
@@ -177,16 +176,26 @@ const fragmentShader = /* glsl */ `
 `;
 
 const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
+let shared = null;
+function sharedRenderer() {
+  if (shared === null) {
+    try {
+      shared = new WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
+      shared.setPixelRatio(1);   // sizes below are already in device pixels
+      shared.debug.checkShaderErrors = false;
+    } catch {
+      shared = false;
+    }
+  }
+  return shared;
+}
+
 export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = false } = {}) {
   const spec = KINDS[kind];
   if (!spec) return false;
-  let renderer;
-  try {
-    renderer = createView(canvas);
-  } catch {
-    return false;
-  }
-  renderer.setPixelRatio(pixelRatio);
+  const renderer = sharedRenderer();
+  const context = renderer && canvas.getContext('2d');
+  if (!context) return false;
 
   const styles = getComputedStyle(document.documentElement);
   const color = new Color(styles.getPropertyValue('--lime').trim() || '#8b7bff');
@@ -237,13 +246,25 @@ export async function mountScene(canvas, { kind, gsap, ScrollTrigger, still = fa
     if (kind !== 'tunnel' && kind !== 'waves') group.rotation.y = spec.tilt[1] + t * 0.18;
     const grow = 0.3 + 0.7 * Math.min(1, Math.max(0, (p - 0.05) / 0.3));
     group.scale.setScalar(still ? 1 : 1 - (1 - grow) ** 3);
+    const { width, height } = canvas;
+    if (!width || !height) return;
+    const size = renderer.domElement;
+    if (size.width < width || size.height < height) {
+      renderer.setSize(Math.max(size.width, width), Math.max(size.height, height), false);
+    }
+    renderer.setViewport(0, 0, width, height);
+    renderer.setScissor(0, 0, width, height);
+    renderer.setScissorTest(true);
     renderer.render(scene, camera);
+    context.clearRect(0, 0, width, height);
+    context.drawImage(size, 0, size.height - height, width, height, 0, 0, width, height);
   }
 
   function resize() {
     const { clientWidth: width, clientHeight: height } = canvas;
     if (!width || !height) return;
-    renderer.setSize(width, height);
+    canvas.width = Math.round(width * pixelRatio);
+    canvas.height = Math.round(height * pixelRatio);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     if (still) render();

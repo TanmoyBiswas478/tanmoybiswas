@@ -2,11 +2,10 @@
 // outward with a shockwave ring and fades. One reusable canvas, drawn only
 // while the effect plays (about 1.5 s).
 import {
-  Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points,
+  WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute, Points,
   ShaderMaterial, Color, AdditiveBlending, IcosahedronGeometry, EdgesGeometry,
   LineSegments, LineBasicMaterial, RingGeometry, Mesh, MeshBasicMaterial,
 } from './vendor/three.module.min.js';
-import { createView } from './gl.js';
 
 const SIZE = 560;          // canvas size in CSS pixels
 const DURATION = 1500;     // ms
@@ -74,7 +73,7 @@ function build() {
   canvas.setAttribute('aria-hidden', 'true');
   document.body.append(canvas);
 
-  const renderer = createView(canvas);
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(SIZE, SIZE, false);

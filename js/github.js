@@ -1,9 +1,8 @@
 import {
-  Scene, PerspectiveCamera, BoxGeometry, InstancedMesh, Mesh,
+  WebGLRenderer, Scene, PerspectiveCamera, BoxGeometry, InstancedMesh, Mesh,
   MeshLambertMaterial, AmbientLight, DirectionalLight, Color, Group, Object3D,
   Raycaster, Vector2,
 } from './vendor/three.module.min.js';
-import { createView } from './gl.js';
 import { createLean } from './lean.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -113,7 +112,8 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
 
   let renderer;
   try {
-    renderer = createView(canvas);
+    renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' });
+    renderer.debug.checkShaderErrors = false; // no blocking shader-status queries
   } catch {
     if (status) status.textContent = `${plural(data.total, 'contribution')} in the last year.`;
     return false;

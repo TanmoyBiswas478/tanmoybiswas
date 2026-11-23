@@ -1,6 +1,6 @@
 import {
   WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, BufferAttribute,
-  Points, ShaderMaterial, AdditiveBlending, Color, Group,
+  Points, ShaderMaterial, AdditiveBlending, Color, Group, Raycaster, Vector2, Vector3, Sphere,
 } from './vendor/three.module.min.js';
 import { createLean } from './lean.js';
 
@@ -64,9 +64,12 @@ const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uSize;
   uniform float uPixelRatio;
+  uniform float uBlastAt;     // uTime of the last click (-100 = none)
+  uniform vec3 uOrigin;       // where the click hit, in the shape's own space
 
   varying float vSeed;
   varying float vFlight;
+  varying float vBlast;
 
   void main() {
     float toHelix = smoothstep(0.0, 1.0, clamp(uMorph, 0.0, 1.0));
@@ -78,12 +81,27 @@ const vertexShader = /* glsl */ `
 
     p.y += sin(uTime * 0.9 + aSeed * 6.2831) * 0.035;
 
+    // Shockwave from the clicked point. Each particle reacts when the wavefront
+    // reaches it (so the hit spreads across the shape), kicks out fast, then
+    // eases home on its own clock, so the shape re-forms grain by grain.
+    vec3 away = p - uOrigin;
+    float dist = length(away);
+    float local = uTime - uBlastAt - dist * 0.09;
+    float kick = local > 0.0 ? (1.0 - exp(-local * 14.0)) * exp(-local * (1.5 + aSeed * 1.3)) : 0.0;
+    float strength = mix(0.22, 1.0, exp(-dist * 0.75));
+    float reach = kick * strength;
+    vec3 scatter = vec3(fract(aSeed * 13.1), fract(aSeed * 7.7), fract(aSeed * 3.3)) - 0.5;
+    vec3 dir = normalize(normalize(away + vec3(0.0001)) * 0.7 + normalize(p + vec3(0.0001)) * 0.3 + scatter * 0.7);
+    p += dir * reach * (1.6 + aSeed * 2.6);
+    float front = local > -0.05 ? exp(-pow(local * 7.0, 2.0)) * strength : 0.0;
+
     vec4 viewPosition = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * viewPosition;
     gl_PointSize = uSize * uPixelRatio * (0.55 + aSeed) / -viewPosition.z;
 
     vSeed = aSeed;
     vFlight = flight;
+    vBlast = max(reach, front);
   }
 `;
 
@@ -93,13 +111,14 @@ const fragmentShader = /* glsl */ `
 
   varying float vSeed;
   varying float vFlight;
+  varying float vBlast;
 
   void main() {
     float distanceFromCentre = length(gl_PointCoord - 0.5);
     if (distanceFromCentre > 0.5) discard;
     float alpha = smoothstep(0.5, 0.05, distanceFromCentre);
-    vec3 colour = vSeed > 0.93 ? uSpark : uColor;
-    gl_FragColor = vec4(colour, alpha * (0.7 + vFlight * 0.3));
+    vec3 colour = mix(vSeed > 0.93 ? uSpark : uColor, uSpark, clamp(vBlast * 1.4, 0.0, 0.85));
+    gl_FragColor = vec4(colour, alpha * (0.7 + vFlight * 0.3 + vBlast * 0.6));
   }
 `;
 
@@ -134,6 +153,8 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     uPixelRatio: { value: pixelRatio },
     uColor: { value: new Color(styles.getPropertyValue('--lime').trim() || '#8b7bff') },
     uSpark: { value: new Color(styles.getPropertyValue('--coral').trim() || '#ff6b8b') },
+    uBlastAt: { value: -100 },
+    uOrigin: { value: new Vector3() },
   };
 
   const points = new Points(geometry, new ShaderMaterial({
@@ -147,6 +168,8 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
   scene.add(group);
   const camera = new PerspectiveCamera(45, 1, 0.1, 50);
 
+  let placeHint = null; // assigned below, once the hint exists
+
   function resize() {
     const { clientWidth: width, clientHeight: height } = canvas;
     if (!width || !height) return;
@@ -157,6 +180,7 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     group.scale.setScalar(narrow ? 0.68 : 1);
     camera.position.set(0, 0, narrow ? 11 : 7.5);
     camera.updateProjectionMatrix();
+    placeHint?.();
     if (still) render();
   }
 
@@ -217,5 +241,72 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
     tiltX(lean.y * 0.25);
   };
 
+  makeBreakable({ canvas, camera, group, points, uniforms, setPlaceHint: (fn) => { placeHint = fn; } });
   return true;
+}
+
+// Click (or tap) the shape: a shockwave from that point, then it re-forms.
+function makeBreakable({ canvas, camera, group, points, uniforms, setPlaceHint }) {
+  const stage = canvas.parentElement;
+  const raycaster = new Raycaster();
+  const ndc = new Vector2();
+  const hit = new Vector3();
+  const bounds = new Sphere(new Vector3(), 1);
+  const below = new Vector3();
+
+  const pick = (clientX, clientY) => {
+    const rect = canvas.getBoundingClientRect();
+    ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    group.updateMatrixWorld();
+    bounds.center.setFromMatrixPosition(group.matrixWorld);
+    bounds.radius = 2.6 * group.scale.x;
+    return raycaster.ray.intersectSphere(bounds, hit);
+  };
+
+  const hint = document.createElement('p');
+  hint.className = 'scene-hint';
+  hint.setAttribute('aria-hidden', 'true');
+  const touch = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  hint.textContent = touch ? 'Tap to break it apart' : 'Click to break it apart';
+  stage.append(hint);
+  const place = () => {
+    below.set(group.position.x, group.position.y - 2.9 * group.scale.x, 0).project(camera);
+    hint.style.left = `${((below.x + 1) / 2) * canvas.clientWidth}px`;
+    hint.style.top = `${((1 - below.y) / 2) * canvas.clientHeight}px`;
+  };
+  setPlaceHint(place);
+  place();
+
+  // The hint is there whenever the scene is on screen; it steps aside during
+  // a blast and comes back once the shape has re-formed.
+  let inView = false;
+  let resting = true;
+  let restTimer = 0;
+  const sync = () => hint.classList.toggle('is-on', inView && resting);
+  new IntersectionObserver(([entry]) => {
+    inView = entry.isIntersecting;
+    sync();
+  }, { threshold: 0.35 }).observe(stage);
+
+  // Coral cursor over the shape, so it reads as clickable.
+  let queued = null;
+  stage.addEventListener('pointermove', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    const first = !queued;
+    queued = event;
+    if (first) requestAnimationFrame(() => { stage.toggleAttribute('data-hot', Boolean(pick(queued.clientX, queued.clientY))); queued = null; });
+  }, { passive: true });
+  stage.addEventListener('pointerleave', () => stage.removeAttribute('data-hot'));
+
+  stage.addEventListener('click', (event) => { // click, not pointerdown: a scroll swipe on a phone never fires it
+    if (event.target.closest('a, button')) return;
+    if (!pick(event.clientX, event.clientY)) return;
+    uniforms.uOrigin.value.copy(points.worldToLocal(hit));
+    uniforms.uBlastAt.value = uniforms.uTime.value; // the shader runs the whole effect from here
+    resting = false;
+    sync();
+    clearTimeout(restTimer);
+    restTimer = setTimeout(() => { resting = true; sync(); }, 2800);
+  });
 }

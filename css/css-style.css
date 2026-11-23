@@ -699,7 +699,7 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
   display: grid; grid-template-columns: minmax(140px, 1fr) 4fr; gap: 4px var(--gutter);
   align-items: baseline; padding-block: 16px; border-bottom: 1px solid var(--rule);
 }
-.contact__list span { font: 400 var(--fs-xs) var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+.contact__list li > span { font: 400 var(--fs-xs) var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
 .contact__list :is(a, p) { font: 500 var(--fs-md) var(--display); }
 .contact__list a { justify-self: start; transition: color var(--fast); }
 .contact__list a:hover { color: var(--accent-text); }
@@ -860,7 +860,11 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .totop:hover .totop__arrow { translate: 0 -3px; animation: totop-bob 0.9s var(--ease) infinite alternate 0.35s; }
 @keyframes totop-bob { to { translate: 0 -6px; } }
 
-@media (max-width: 760px) { .totop { width: 52px; height: 52px; } }
+@media (max-width: 760px) {
+  .totop { width: 46px; height: 46px; box-shadow: 3px 3px 0 var(--coral); }
+  .totop__arrow { width: 18px; height: 18px; }
+  .hire { padding: 10px 16px; gap: 8px; font-size: var(--fs-sm); box-shadow: 3px 3px 0 var(--coal); }
+}
 
 /* Command palette */
 .palette {
@@ -1070,3 +1074,23 @@ html.has-custom-cursor, html.has-custom-cursor * { cursor: none !important; }
   .scene--footer { width: 160vw; right: auto; }
   .scene--footer.is-live { opacity: 0.6; }
 }
+
+/* Hint under a clickable 3D scene (js/story.js, js/orb.js). Fades out after the first try. */
+.scene-hint {
+  position: absolute; z-index: 2; translate: -50% 8px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 13px; border: 1px solid var(--rule); border-radius: var(--radius-pill);
+  background: rgba(7, 6, 13, 0.6);
+  font: 400 var(--fs-2xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 0.5s var(--ease), translate 0.5s var(--ease);
+}
+.scene-hint::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--coral);
+  box-shadow: 0 0 0 0 rgba(255, 107, 139, 0.6); animation: hint-pulse 1.8s ease-out infinite;
+}
+.scene-hint.is-on { opacity: 1; translate: -50% 0; }
+@keyframes hint-pulse { 70%, 100% { box-shadow: 0 0 0 8px rgba(255, 107, 139, 0); } }
+
+/* The orb's ping lands on the email address. */
+.contact__address.is-pinged { background-size: 100% 0.06em; color: var(--accent-text); }

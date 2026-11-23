@@ -246,7 +246,7 @@
       return;
     }
 
-    const clickable = 'a, button, input, textarea, select, label, summary, [role="button"], [role="option"]';
+    const clickable = 'a, button, input, textarea, select, label, summary, [role="button"], [role="option"], [data-hot]';
     let overLink = false;
     let tookOver = false;
     // The system pointer is hidden only once the ball has really rendered; if it
@@ -334,9 +334,9 @@
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=260%',
+          end: '+=160%',
           pin: stage,
-          scrub: 0.8,
+          scrub: 0.4,
           refreshPriority: 1, // measure the pin before anything below it
         },
       })

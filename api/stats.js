@@ -41,6 +41,64 @@ const shown = (value, min) => {
   return n >= min ? n : null;
 };
 
+// Owner view: /api/stats?key=<STATS_ADMIN_KEY> shows the exact numbers (no
+// thresholds) and the last 14 days. A browser gets a small page, anything
+// else gets JSON.
+function keyMatches(given) {
+  const expected = env.STATS_ADMIN_KEY;
+  if (!expected || typeof given !== 'string') return false;
+  const a = crypto.createHash('sha256').update(given).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function ownerView(req, res) {
+  res.setHeader('cache-control', 'no-store');
+  res.setHeader('x-robots-tag', 'noindex');
+  if (!keyMatches(req.query.key)) {
+    res.status(401).json({ error: env.STATS_ADMIN_KEY ? 'Wrong key' : 'STATS_ADMIN_KEY is not set' });
+    return;
+  }
+
+  const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - i * DAY * 1000).toISOString().slice(0, 10));
+  const results = await redis([['GET', 'stats:visitors'], ['GET', 'stats:likes'], ...days.map((d) => ['GET', `stats:day:${d}`])]);
+  const data = {
+    visitors: Number(results[0]) || 0,
+    likes: Number(results[1]) || 0,
+    days: days.map((date, i) => ({ date, visitors: Number(results[i + 2]) || 0 })),
+  };
+
+  if (!String(req.headers.accept || '').includes('text/html')) {
+    res.status(200).json(data);
+    return;
+  }
+
+  const peak = Math.max(1, ...data.days.map((d) => d.visitors));
+  const rows = data.days.map((d) => `<tr><td>${d.date}</td><td><i style="width:${(d.visitors / peak) * 100}%"></i></td><td>${d.visitors}</td></tr>`).join('');
+  res.setHeader('content-type', 'text/html; charset=utf-8');
+  res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Portfolio stats</title>
+<style>
+body{margin:0;padding:40px 20px;background:#07060d;color:#f4f3f9;font:15px/1.5 system-ui,sans-serif}
+main{max-width:560px;margin:auto}
+h1{font-size:14px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#918da8;margin:0 0 24px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px}
+.card{padding:20px;border:1px solid rgba(244,243,249,.16);border-radius:12px}
+.card b{display:block;font-size:40px;font-weight:600;line-height:1.1}
+.card span{color:#918da8;font-size:13px}
+table{width:100%;border-collapse:collapse;font:13px ui-monospace,Consolas,monospace}
+td{padding:7px 0;border-bottom:1px solid rgba(244,243,249,.1)}
+td:nth-child(2){width:60%;padding:7px 12px}
+td:last-child{text-align:right}
+i{display:block;height:8px;min-width:2px;border-radius:4px;background:linear-gradient(90deg,#8b7bff,#ff6b8b)}
+p{color:#918da8;font-size:13px}
+</style></head><body><main>
+<h1>Portfolio stats</h1>
+<div class="cards"><div class="card"><b>${data.visitors}</b><span>visitors in total</span></div><div class="card"><b>${data.likes}</b><span>appreciations</span></div></div>
+<table>${rows}</table>
+<p>Unique visitors per day (UTC). Public thresholds: ${MIN_VISITORS} visitors, ${MIN_LIKES} likes.</p>
+</main></body></html>`);
+}
+
 module.exports = async function handler(req, res) {
   if (!REDIS_URL || !TOKEN) {
     res.status(503).json({ error: 'Stats storage is not configured' });
@@ -48,6 +106,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    if (req.method === 'GET' && req.query?.key !== undefined) {
+      await ownerView(req, res);
+      return;
+    }
+
     if (req.method === 'GET') {
       const [visitors, likes] = await redis([['GET', 'stats:visitors'], ['GET', 'stats:likes']]);
       res.setHeader('cache-control', 'public, s-maxage=60, stale-while-revalidate=300');
@@ -73,7 +136,13 @@ module.exports = async function handler(req, res) {
     if (action === 'visit' && !isBot) {
       const today = new Date().toISOString().slice(0, 10);
       const [fresh] = await redis([['SET', `seen:visit:${today}:${id}`, '1', 'NX', 'EX', DAY]]);
-      if (fresh === 'OK') await redis([['INCR', 'stats:visitors']]);
+      if (fresh === 'OK') {
+        await redis([
+          ['INCR', 'stats:visitors'],
+          ['INCR', `stats:day:${today}`],
+          ['EXPIRE', `stats:day:${today}`, DAY * 90],
+        ]);
+      }
     } else if (action === 'like' && !isBot) {
       const [fresh] = await redis([['SET', `seen:like:${id}`, '1', 'NX', 'EX', DAY * 365]]);
       if (fresh === 'OK') await redis([['INCR', 'stats:likes']]);

@@ -659,8 +659,8 @@
       scrollToElement(target);
       if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
-      if (link.hash === '#top') history.replaceState(null, '', location.pathname + location.search);
-      else history.pushState(null, '', link.hash);
+      // Keep the address bar clean: no #section after in-page jumps.
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     });
 
     const byId = new Map(links.map((link) => [link.hash.slice(1), link]));
@@ -1607,6 +1607,8 @@
     const settle = () => {
       ScrollTrigger.refresh();
       if (target) target.scrollIntoView({ behavior: 'auto' });
+      // A shared #section link still lands on its section, then the hash is dropped.
+      if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     };
     document.fonts?.ready.then(() => ScrollTrigger.refresh());
     if (document.readyState === 'complete') settle();

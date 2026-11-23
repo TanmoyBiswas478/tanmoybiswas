@@ -702,6 +702,39 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .contact__list a:hover { color: var(--accent-text); }
 .contact__list a:hover .arr { translate: 2px -2px; }
 .contact__list .arr { margin-left: 6px; width: 0.6em; height: 0.6em; }
+.contact__list [hidden] { display: none; }
+
+/* Appreciate button: a chip that fills with the brand gradient. */
+.appreciate {
+  position: relative; isolation: isolate; overflow: hidden; justify-self: start;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 18px; border: 1px solid var(--rule); border-radius: var(--radius-pill);
+  font: 500 var(--fs-sm) var(--display); color: var(--ink);
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.appreciate::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--grad); opacity: 0; transition: opacity 0.3s var(--ease);
+}
+.appreciate__heart {
+  width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round;
+  transition: fill 0.3s var(--ease), scale 0.3s var(--ease);
+}
+.appreciate__count {
+  padding-left: 10px; border-left: 1px solid var(--rule);
+  font: 400 var(--fs-xs) var(--mono); font-variant-numeric: tabular-nums; color: var(--dim);
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.appreciate:hover, .appreciate[aria-pressed="true"] { color: var(--coal); border-color: transparent; }
+.appreciate:hover::before, .appreciate[aria-pressed="true"]::before { opacity: 1; }
+.appreciate:hover .appreciate__count,
+.appreciate[aria-pressed="true"] .appreciate__count { color: var(--coal); border-color: rgba(17, 15, 28, 0.25); }
+.appreciate:hover .appreciate__heart { scale: 1.12; }
+.appreciate[aria-pressed="true"] .appreciate__heart { fill: currentColor; }
+.appreciate[aria-pressed="true"] { cursor: default; }
+.appreciate:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.appreciate.is-pop .appreciate__heart { animation: appreciate-pop 0.5s var(--ease); }
+@keyframes appreciate-pop { 40% { scale: 1.45; } }
 
 /* Footer */
 .footer { border-top: 1px solid var(--rule); }
@@ -710,6 +743,8 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
   padding-block: 28px; font-size: var(--fs-sm); color: var(--dim);
 }
 .footer .link { font-size: inherit; color: var(--ink); }
+.footer__visits { font: 400 var(--fs-xs) var(--mono); letter-spacing: 0.04em; color: var(--faint); font-variant-numeric: tabular-nums; }
+.footer__visits::before { content: "·"; margin: 0 10px; }
 .footer .link:hover { color: var(--on-accent); }
 
 /* Résumé */

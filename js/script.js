@@ -1180,6 +1180,68 @@
     }
   }
 
+  // Visitor count and appreciate button (api/stats.js). Both stay hidden
+  // unless the API answers, and the API hides counts below its thresholds.
+
+  function initStats() {
+    const visits = $('[data-visits]');
+    const row = $('[data-like-row]');
+    const button = row && $('[data-like]', row);
+    if ((!visits && !button) || location.protocol === 'file:') return;
+
+    const count = button && $('[data-like-count]', button);
+    const label = button && $('[data-like-label]', button);
+    const number = new Intl.NumberFormat('en-US');
+    const store = {
+      get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+      set: (key, value) => { try { localStorage.setItem(key, value); } catch {} },
+    };
+
+    const render = (data) => {
+      if (visits && data.visitors != null) {
+        visits.textContent = `${number.format(data.visitors)} visitors since ${visits.dataset.since}`;
+        visits.hidden = false;
+      }
+      if (button) {
+        row.hidden = false;
+        if (data.likes != null) {
+          count.textContent = number.format(data.likes);
+          count.hidden = false;
+        }
+      }
+    };
+
+    const setLiked = () => {
+      button.setAttribute('aria-pressed', 'true');
+      label.textContent = 'Appreciated';
+    };
+    if (button && store.get('tb-liked')) setLiked();
+
+    const call = (action) => fetch(action ? `/api/stats?action=${action}` : '/api/stats', { method: action ? 'POST' : 'GET' })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`stats ${response.status}`))));
+
+    // One visit per browser per day; later loads only read the numbers.
+    const today = new Date().toISOString().slice(0, 10);
+    const firstToday = store.get('tb-visit-day') !== today;
+    whenIdle(() => call(firstToday ? 'visit' : null)
+      .then((data) => {
+        if (firstToday) store.set('tb-visit-day', today);
+        render(data);
+      })
+      .catch(() => {})); // not configured or offline: everything stays hidden
+
+    button?.addEventListener('click', () => {
+      if (button.getAttribute('aria-pressed') === 'true') return;
+      setLiked();
+      store.set('tb-liked', '1');
+      button.classList.remove('is-pop');
+      void button.offsetWidth; // restart the pop animation
+      button.classList.add('is-pop');
+      toast('Thank you. That means a lot.');
+      call('like').then(render).catch(() => {});
+    });
+  }
+
   function initCopy() {
     for (const button of $$('[data-copy]')) {
       button.addEventListener('click', () => copyText(button.dataset.copy, 'Email address copied'));
@@ -1534,7 +1596,7 @@
   const features = {
     initHeadings, initReveal, initWordScrub, initCounters, initProgress, initNav, initClock,
     initPortrait, initTicker, initJobs, initContactCurtain, initMagnetic, initProjects, initLog,
-    initCopy, initHireButton, initToTop, initResume, initPalette, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
+    initCopy, initStats, initHireButton, initToTop, initResume, initPalette, initTerrain, initStory, initOrb, initSkills, initGithub, initScenes, initFooterName, initCursor,
   };
   for (const [name, feature] of Object.entries(features)) run(name, feature);
 

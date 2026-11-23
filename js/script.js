@@ -311,7 +311,9 @@
     const root = $('[data-skills]');
     if (!root || !scriptUrl || saveData) return;
     const probe = document.createElement('canvas');
-    if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) return;
+    const probeGl = probe.getContext('webgl2') || probe.getContext('webgl');
+    probeGl?.getExtension('WEBGL_lose_context')?.loseContext();   // only a check: free the context now
+    if (!probeGl) return;
     root.classList.add('has-globe');
     let started = false;
     const mount = () => {
@@ -843,12 +845,12 @@
     const band = $('#contact');
     if (!band || !animate) return;
 
+    // Scale only: the GPU composites it. Animating border-radius too forced the
+    // whole band to repaint on every scroll frame.
     gsap.fromTo(band,
-      { scaleX: 0.92, borderTopLeftRadius: '120px', borderTopRightRadius: '120px' },
+      { scaleX: 0.92 },
       {
         scaleX: 1,
-        borderTopLeftRadius: '45px',
-        borderTopRightRadius: '45px',
         ease: 'none',
         transformOrigin: 'center top',
         scrollTrigger: { trigger: band, start: 'top bottom', end: 'top 35%', scrub: true },
@@ -994,7 +996,7 @@
     const preload = () => {
       for (const image of images.values()) {
         if (image.src) continue;
-        image.fetchPriority = 'high';
+        image.fetchPriority = 'low';   // only needed on hover; don't compete with the page's own loading
         image.src = image.dataset.src;
         image.decode?.().catch(() => {});
       }
@@ -1120,7 +1122,7 @@
 
     const render = (data) => {
       if (visits && data.visitors != null) {
-        visits.textContent = `${number.format(data.visitors)} visitors since ${visits.dataset.since}`;
+        visits.textContent = `${number.format(data.visitors)} visits since ${visits.dataset.since}`;
         visits.hidden = false;
       }
       if (button) {
@@ -1138,7 +1140,7 @@
     };
     if (button && store.get('tb-liked')) setLiked(true);
 
-    const call = (action) => fetch(action ? `/api/stats?action=${action}` : '/api/stats', { method: action ? 'POST' : 'GET' })
+    const call = (action, keepalive = false) => fetch(action ? `/api/stats?action=${action}` : '/api/stats', { method: action ? 'POST' : 'GET', keepalive })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`stats ${response.status}`))));
 
     // One visit per browser per day; later loads only read the numbers.
@@ -1182,7 +1184,29 @@
       } else {
         store.set('tb-liked', '');
       }
-      call(liking ? 'like' : 'unlike').then(render).catch(() => {});
+      syncLike();
+    });
+
+    // Rapid presses send only the final state, once they settle. A sequence
+    // check drops answers that arrive after a newer request, so the count on
+    // screen always matches the button.
+    let serverLiked = Boolean(button && store.get('tb-liked'));
+    let syncTimer = 0;
+    let latest = 0;
+    const sendLike = (keepalive = false) => {
+      syncTimer = 0;
+      const want = button.getAttribute('aria-pressed') === 'true';
+      if (want === serverLiked) return;
+      serverLiked = want;
+      const id = ++latest;
+      call(want ? 'like' : 'unlike', keepalive).then((data) => { if (id === latest) render(data); }).catch(() => {});
+    };
+    const syncLike = () => {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(sendLike, 400);
+    };
+    window.addEventListener('pagehide', () => {   // leaving within 400 ms of a press still sends it
+      if (syncTimer) { clearTimeout(syncTimer); sendLike(true); }
     });
   }
 
@@ -1367,7 +1391,9 @@
       if (name && link) commands.push({ label: name, kind: 'Project', run: open(link.href) });
     }
     for (const link of $$('a[data-command]')) {
-      commands.push({ label: link.dataset.command, kind: 'Link', run: open(link.href) });
+      // A download link is clicked, so the browser saves the file instead of opening a tab.
+      const run = link.hasAttribute('download') ? () => link.click() : open(link.href);
+      commands.push({ label: link.dataset.command, kind: link.hasAttribute('download') ? 'Action' : 'Link', run });
     }
     if (openResume) commands.push({ label: 'View résumé', kind: 'Action', run: () => openResume() });
     const email = $('[data-copy]')?.dataset.copy;

@@ -308,6 +308,10 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
   const hold = () => clearTimeout(clearTimer);
 
   groups.forEach((group, g) => {
+    // Keyboard: Tab onto a skill group to turn the globe to it.
+    group.el.tabIndex = 0;
+    group.el.addEventListener('focus', () => { hold(); highlight(g); });
+    group.el.addEventListener('blur', clearSoon);
     group.el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { hold(); highlight(g); } });
     group.el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') clearSoon(); });
     group.el.addEventListener('click', (e) => {
@@ -349,7 +353,7 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
     view.pitch = Math.max(-0.9, Math.min(0.9, view.pitch + dy * k));
     view.spin = (dx * k) / Math.max((now - drag.t) / 1000, 0.008);
     drag.x = e.clientX; drag.y = e.clientY; drag.t = now;
-    render();
+    // No render here: the frame loop (woken on pointerdown) draws once per frame.
   });
   const endDrag = () => { drag = null; };
   stage.addEventListener('pointerup', endDrag);
@@ -376,7 +380,14 @@ export async function mountSkills(root, { gsap, still = false } = {}) {
       }
     }
     render();
+    // With no idle drift (reduced motion), stop once nothing moves; any
+    // hover, focus or drag wakes the loop again.
+    if (!AUTO && !drag && settled()) { running = false; return; }
     requestAnimationFrame(frame);
+  }
+  function settled() {
+    const goal = view.target ?? { yaw: view.yaw, pitch: 0.18 };
+    return Math.abs(view.spin) < 1e-3 && Math.abs(goal.yaw - view.yaw) < 1e-3 && Math.abs(goal.pitch - view.pitch) < 1e-3;
   }
   function wake() {
     const should = onScreen && !document.hidden;

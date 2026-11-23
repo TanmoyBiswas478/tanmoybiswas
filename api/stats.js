@@ -29,15 +29,28 @@ async function redis(commands) {
   return (await response.json()).map((entry) => entry.result);
 }
 
-function visitorId(req) {
-  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '').split(',')[0].trim();
-  return crypto.createHash('sha256').update(`${SALT}|${ip}|${req.headers['user-agent'] || ''}`).digest('hex').slice(0, 32);
-}
+const hash = (value) => crypto.createHash('sha256').update(`${SALT}|${value}`).digest('hex').slice(0, 32);
+const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '').split(',')[0].trim();
+const visitorId = (req) => hash(`${clientIp(req)}|${req.headers['user-agent'] || ''}`);
+const ipId = (req) => hash(`ip|${clientIp(req)}`);
 
+// Browsers always send Origin on a POST, so a POST without one is a script.
 function sameSite(req) {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  if (!origin) return false;
   try { return new URL(origin).host === req.headers.host; } catch { return false; }
+}
+
+// Per-IP limits. Changing the User-Agent makes a new visitorId, so these are
+// keyed on the IP alone: they stop one machine from inflating the counts.
+const RATE_WINDOW = 10 * 60;          // seconds
+const RATE_MAX = 30;                  // POSTs per IP per window
+const LIKES_PER_IP_PER_DAY = 3;       // a shared network (home, office) still gets a few
+
+async function overLimit(req) {
+  const key = `rl:${ipId(req)}:${Math.floor(Date.now() / 1000 / RATE_WINDOW)}`;
+  const [count] = await redis([['INCR', key], ['EXPIRE', key, RATE_WINDOW]]);
+  return count > RATE_MAX;
 }
 
 const shown = (value, min) => {
@@ -45,9 +58,10 @@ const shown = (value, min) => {
   return n >= min ? n : null;
 };
 
-// Owner view: /api/stats?key=<STATS_ADMIN_KEY> shows the exact numbers (no
-// thresholds) and the last 14 days. A browser gets a small page, anything
-// else gets JSON.
+// Owner view: shows the exact numbers (no thresholds) and the last 14 days.
+// A browser gets a small page, anything else gets JSON. The key can be sent as
+// a header (`x-stats-key: <key>`), which stays out of logs and history, or as
+// /api/stats?key=<key> for quick use in a browser.
 function keyMatches(given) {
   const expected = env.STATS_ADMIN_KEY;
   if (!expected || typeof given !== 'string') return false;
@@ -59,7 +73,8 @@ function keyMatches(given) {
 async function ownerView(req, res) {
   res.setHeader('cache-control', 'no-store');
   res.setHeader('x-robots-tag', 'noindex');
-  if (!keyMatches(req.query.key)) {
+  res.setHeader('referrer-policy', 'no-referrer');
+  if (!keyMatches(req.headers['x-stats-key'] ?? req.query?.key)) {
     res.status(401).json({ error: env.STATS_ADMIN_KEY ? 'Wrong key' : 'STATS_ADMIN_KEY is not set' });
     return;
   }
@@ -97,9 +112,9 @@ i{display:block;height:8px;min-width:2px;border-radius:4px;background:linear-gra
 p{color:#918da8;font-size:13px}
 </style></head><body><main>
 <h1>Portfolio stats</h1>
-<div class="cards"><div class="card"><b>${data.visitors}</b><span>visitors in total</span></div><div class="card"><b>${data.likes}</b><span>appreciations</span></div></div>
+<div class="cards"><div class="card"><b>${data.visitors}</b><span>visits in total</span></div><div class="card"><b>${data.likes}</b><span>appreciations</span></div></div>
 <table>${rows}</table>
-<p>Unique visitors per day (IST). Public thresholds: ${MIN_VISITORS} visitors, ${MIN_LIKES} likes.</p>
+<p>Unique visitors per day (IST); the total adds these up, so a returning visitor counts once per day. Public thresholds: ${MIN_VISITORS} visits, ${MIN_LIKES} likes.</p>
 </main></body></html>`);
 }
 
@@ -110,7 +125,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    if (req.method === 'GET' && req.query?.key !== undefined) {
+    if (req.method === 'GET' && (req.query?.key !== undefined || req.headers['x-stats-key'] !== undefined)) {
       await ownerView(req, res);
       return;
     }
@@ -133,6 +148,15 @@ module.exports = async function handler(req, res) {
     }
 
     const action = req.query?.action;
+    if (!['visit', 'like', 'unlike'].includes(action)) {
+      res.status(400).json({ error: 'Unknown action' });
+      return;
+    }
+    if (await overLimit(req)) {
+      res.setHeader('retry-after', String(RATE_WINDOW));
+      res.status(429).json({ error: 'Too many requests' });
+      return;
+    }
     const isBot = BOT.test(req.headers['user-agent'] || '');
     const id = visitorId(req);
     let liked = false;
@@ -149,7 +173,12 @@ module.exports = async function handler(req, res) {
       }
     } else if (action === 'like' && !isBot) {
       const [fresh] = await redis([['SET', `seen:like:${id}`, '1', 'NX', 'EX', DAY * 365]]);
-      if (fresh === 'OK') await redis([['INCR', 'stats:likes']]);
+      if (fresh === 'OK') {
+        const ipKey = `likes:ip:${istDate()}:${ipId(req)}`;
+        const [fromIp] = await redis([['INCR', ipKey], ['EXPIRE', ipKey, DAY]]);
+        if (fromIp <= LIKES_PER_IP_PER_DAY) await redis([['INCR', 'stats:likes']]);
+        else await redis([['DEL', `seen:like:${id}`]]);   // not counted, so nothing to take back later
+      }
       liked = true;
     } else if (action === 'unlike' && !isBot) {
       // Only takes back a like this visitor actually gave.
@@ -158,15 +187,13 @@ module.exports = async function handler(req, res) {
         const [left] = await redis([['DECR', 'stats:likes']]);
         if (left < 0) await redis([['SET', 'stats:likes', '0']]);
       }
-    } else if (!['visit', 'like', 'unlike'].includes(action)) {
-      res.status(400).json({ error: 'Unknown action' });
-      return;
     }
 
     const [visitors, likes] = await redis([['GET', 'stats:visitors'], ['GET', 'stats:likes']]);
     res.setHeader('cache-control', 'no-store');
     res.status(200).json({ visitors: shown(visitors, MIN_VISITORS), likes: shown(likes, MIN_LIKES), liked });
   } catch (error) {
-    res.status(502).json({ error: String(error.message || error) });
+    console.error('stats failed:', error);   // details stay in the server log
+    res.status(502).json({ error: 'Stats are unavailable right now' });
   }
 };

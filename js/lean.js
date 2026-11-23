@@ -1,27 +1,16 @@
 const clamp = (value) => Math.max(-1, Math.min(1, value));
 const touchFirst = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
+// Device tilt, where the browser gives it freely (Android). iOS only gives it
+// after a system permission prompt; a portfolio popping that up on a tap looks
+// suspicious, so iOS never asks and gets the gentle automatic sway instead.
 let tilt = null;
-let tiltListening = false;
-function listenForTilt() {
-  if (tiltListening) return;
-  tiltListening = true;
+const needsPermission = typeof window.DeviceOrientationEvent?.requestPermission === 'function';
+if (touchFirst && 'DeviceOrientationEvent' in window && !needsPermission) {
   window.addEventListener('deviceorientation', (event) => {
     if (event.gamma == null || event.beta == null) return;
     tilt = { x: clamp(event.gamma / 30), y: clamp((event.beta - 45) / 30) };
   }, { passive: true });
-}
-
-const askPermission = typeof window.DeviceOrientationEvent?.requestPermission === 'function';
-if (touchFirst && 'DeviceOrientationEvent' in window && !askPermission) listenForTilt();
-
-let asked = false;
-function askForTilt() {
-  if (!askPermission || asked) return;
-  asked = true;
-  window.DeviceOrientationEvent.requestPermission()
-    .then((state) => { if (state === 'granted') listenForTilt(); })
-    .catch(() => {});
 }
 
 export function createLean(area) {
@@ -48,7 +37,7 @@ export function createLean(area) {
   };
   area.addEventListener('touchstart', onTouch, { passive: true });
   area.addEventListener('touchmove', onTouch, { passive: true });
-  area.addEventListener('touchend', () => { release(); askForTilt(); }, { passive: true });
+  area.addEventListener('touchend', release, { passive: true });
   area.addEventListener('touchcancel', release, { passive: true });
 
   return (time = 0) => {

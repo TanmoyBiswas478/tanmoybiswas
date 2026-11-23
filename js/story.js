@@ -202,8 +202,16 @@ export async function mountStory(canvas, { state = { morph: 0 }, gsap, still = f
 
   let onScreen = true;
   let steer = null; // assigned below
+  // Full frame rate only while the shape is morphing with the scroll or a
+  // blast is playing; the rest of the time ~30 fps, like the other scenes.
+  let lastFrame = 0;
+  let lastMorph = state.morph;
   const tick = (time) => {
     steer?.(time);
+    const busy = state.morph !== lastMorph || time - uniforms.uBlastAt.value < 3;
+    lastMorph = state.morph;
+    if (!busy && time - lastFrame < 1 / 32) return;
+    lastFrame = time;
     render(time * 1000);
   };
   let ticking = false;

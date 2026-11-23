@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({ query: QUERY, variables: { login: USER } }),
     });
-    const json = await response.json();
+    const json = await response.json().catch(() => null);   // an HTML error page is not JSON
     const calendar = json?.data?.user?.contributionsCollection?.contributionCalendar;
     if (!response.ok || !calendar) throw new Error(json?.errors?.[0]?.message || `GitHub answered ${response.status}`);
 
@@ -43,6 +43,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('cache-control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     res.status(200).json({ total: calendar.totalContributions, days });
   } catch (error) {
-    res.status(502).json({ error: String(error.message || error) });
+    console.error('github failed:', error);   // details stay in the server log
+    res.status(502).json({ error: 'Contributions are unavailable right now' });
   }
 };

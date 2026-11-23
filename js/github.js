@@ -268,14 +268,17 @@ export async function mountContributions(root, { gsap, ScrollTrigger, still = fa
   let dirty = true;
   markDirty = () => { dirty = true; };
   const lean = { x: 0, y: 0 };
+  let lastFrame = 0;
   const tick = (time) => {
+    if (time - lastFrame < 1 / 32) return;   // ~30 fps, like the other scenes (phones sway it nonstop)
+    lastFrame = time;
     const target = read(time);
     const dx = target.x - lean.x;
     const dy = target.y - lean.y;
     if (Math.abs(dx) < 0.002 && Math.abs(dy) < 0.002 && !dirty) return;
     dirty = false;
-    lean.x += dx * 0.08;
-    lean.y += dy * 0.08;
+    lean.x += dx * 0.15;   // half as many steps per second, so a bigger step keeps the same feel
+    lean.y += dy * 0.15;
     city.rotation.y = view.turn + lean.x * 0.12;
     city.rotation.x = lean.y * 0.04;
     render();

@@ -2,6 +2,7 @@
 //   GET              -> { visitors, likes }
 //   POST ?action=visit -> counts this visitor once per day
 //   POST ?action=like  -> counts one like per visitor
+//   POST ?action=unlike -> takes that like back
 // Counts below the thresholds come back as null, so small numbers stay private.
 const crypto = require('crypto');
 
@@ -147,7 +148,14 @@ module.exports = async function handler(req, res) {
       const [fresh] = await redis([['SET', `seen:like:${id}`, '1', 'NX', 'EX', DAY * 365]]);
       if (fresh === 'OK') await redis([['INCR', 'stats:likes']]);
       liked = true;
-    } else if (action !== 'visit' && action !== 'like') {
+    } else if (action === 'unlike' && !isBot) {
+      // Only takes back a like this visitor actually gave.
+      const [removed] = await redis([['DEL', `seen:like:${id}`]]);
+      if (removed === 1) {
+        const [left] = await redis([['DECR', 'stats:likes']]);
+        if (left < 0) await redis([['SET', 'stats:likes', '0']]);
+      }
+    } else if (!['visit', 'like', 'unlike'].includes(action)) {
       res.status(400).json({ error: 'Unknown action' });
       return;
     }

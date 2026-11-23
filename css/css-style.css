@@ -731,7 +731,6 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .appreciate[aria-pressed="true"] .appreciate__count { color: var(--coal); border-color: rgba(17, 15, 28, 0.25); }
 .appreciate:hover .appreciate__heart { scale: 1.12; }
 .appreciate[aria-pressed="true"] .appreciate__heart { fill: currentColor; }
-.appreciate[aria-pressed="true"] { cursor: default; }
 .appreciate:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
 .appreciate.is-pop .appreciate__heart { animation: appreciate-pop 0.5s var(--ease); }
 @keyframes appreciate-pop { 40% { scale: 1.45; } }

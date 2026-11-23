@@ -1211,11 +1211,11 @@
       }
     };
 
-    const setLiked = () => {
-      button.setAttribute('aria-pressed', 'true');
-      label.textContent = 'Appreciated';
+    const setLiked = (on) => {
+      button.setAttribute('aria-pressed', String(on));
+      label.textContent = on ? 'Appreciated' : 'Appreciate';
     };
-    if (button && store.get('tb-liked')) setLiked();
+    if (button && store.get('tb-liked')) setLiked(true);
 
     const call = (action) => fetch(action ? `/api/stats?action=${action}` : '/api/stats', { method: action ? 'POST' : 'GET' })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`stats ${response.status}`))));
@@ -1230,15 +1230,20 @@
       })
       .catch(() => {})); // not configured or offline: everything stays hidden
 
+    // Press to appreciate, press again to take it back.
     button?.addEventListener('click', () => {
-      if (button.getAttribute('aria-pressed') === 'true') return;
-      setLiked();
-      store.set('tb-liked', '1');
-      button.classList.remove('is-pop');
-      void button.offsetWidth; // restart the pop animation
-      button.classList.add('is-pop');
-      toast('Thank you. That means a lot.');
-      call('like').then(render).catch(() => {});
+      const liking = button.getAttribute('aria-pressed') !== 'true';
+      setLiked(liking);
+      if (liking) {
+        store.set('tb-liked', '1');
+        button.classList.remove('is-pop');
+        void button.offsetWidth; // restart the pop animation
+        button.classList.add('is-pop');
+        toast('Thank you. That means a lot.');
+      } else {
+        store.set('tb-liked', '');
+      }
+      call(liking ? 'like' : 'unlike').then(render).catch(() => {});
     });
   }
 

@@ -14,6 +14,9 @@ const MIN_VISITORS = Number(process.env.STATS_MIN_VISITORS ?? 300);
 const MIN_LIKES = Number(process.env.STATS_MIN_LIKES ?? 10);
 
 const DAY = 60 * 60 * 24;
+// Days are counted in Indian Standard Time (UTC+5:30): a new day starts at 12:00 AM IST.
+const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+const istDate = (ms = Date.now()) => new Date(ms + IST_OFFSET).toISOString().slice(0, 10);
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|curl|wget|python|headless|lighthouse/i;
 
 async function redis(commands) {
@@ -61,7 +64,7 @@ async function ownerView(req, res) {
     return;
   }
 
-  const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - i * DAY * 1000).toISOString().slice(0, 10));
+  const days = Array.from({ length: 14 }, (_, i) => istDate(Date.now() - i * DAY * 1000));
   const results = await redis([['GET', 'stats:visitors'], ['GET', 'stats:likes'], ...days.map((d) => ['GET', `stats:day:${d}`])]);
   const data = {
     visitors: Number(results[0]) || 0,
@@ -96,7 +99,7 @@ p{color:#918da8;font-size:13px}
 <h1>Portfolio stats</h1>
 <div class="cards"><div class="card"><b>${data.visitors}</b><span>visitors in total</span></div><div class="card"><b>${data.likes}</b><span>appreciations</span></div></div>
 <table>${rows}</table>
-<p>Unique visitors per day (UTC). Public thresholds: ${MIN_VISITORS} visitors, ${MIN_LIKES} likes.</p>
+<p>Unique visitors per day (IST). Public thresholds: ${MIN_VISITORS} visitors, ${MIN_LIKES} likes.</p>
 </main></body></html>`);
 }
 
@@ -135,7 +138,7 @@ module.exports = async function handler(req, res) {
     let liked = false;
 
     if (action === 'visit' && !isBot) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = istDate();
       const [fresh] = await redis([['SET', `seen:visit:${today}:${id}`, '1', 'NX', 'EX', DAY]]);
       if (fresh === 'OK') {
         await redis([

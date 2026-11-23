@@ -378,9 +378,12 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 }
 .job::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 107, 139, 0.22), transparent 65%);
+  background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 107, 139, 0.12), rgba(139, 123, 255, 0.06) 45%, transparent 70%);
 }
-.job:hover { border-color: var(--ink); }
+/* Under the glow, grey text would turn ashy: darken it while hovered. */
+.job:hover { border-color: var(--ink); --dim: #2a2640; --accent-text: #9c1239; }
+.job__head p, .job__body li, .job__tags li { transition: color 0.3s var(--ease); }
 .job:hover::before { opacity: 1; }
 .job > * { position: relative; }
 
@@ -394,7 +397,7 @@ html:not(.js) :is(.nav__search, .footer__hint, [data-copy], .filters, .hire, .lo
 .job__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 20px; }
 .job__tags li {
   font: 400 var(--fs-xs)/1 var(--mono); letter-spacing: 0.02em; color: var(--dim);
-  padding: 7px 11px; border: 1px solid var(--rule); border-radius: var(--radius-pill); background: var(--paper);
+  padding: 7px 11px; border: 1px solid var(--rule); border-radius: var(--radius-pill); background: var(--white);
 }
 
 .job__body { display: flex; flex-direction: column; gap: 18px; max-width: 64ch; }

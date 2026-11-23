@@ -1221,7 +1221,8 @@
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`stats ${response.status}`))));
 
     // One visit per browser per day; later loads only read the numbers.
-    const today = new Date().toISOString().slice(0, 10);
+    // Same day boundary as the server: 12:00 AM IST.
+    const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const firstToday = store.get('tb-visit-day') !== today;
     whenIdle(() => call(firstToday ? 'visit' : null)
       .then((data) => {
